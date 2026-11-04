@@ -24,6 +24,9 @@ public final class PlanConfig {
     }
 
     private static final ForgeConfigSpec.EnumValue<PlanMode> MODE;
+    private static final ForgeConfigSpec.IntValue MAX_AGE_TICKS;
+    private static final ForgeConfigSpec.DoubleValue ACTIVE_RADIUS;
+    private static final ForgeConfigSpec.IntValue MAX_PER_AREA;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -36,6 +39,18 @@ public final class PlanConfig {
                         "ARTICULATED = 不散架：只有根节点自由移动，其余部件只能绕关节转动。",
                         "FREE = 自由：每个部件独立受力，靠关节软约束拉在一起，冲击大时会被拽开。")
                 .defineEnum("mode", PlanMode.ARTICULATED);
+
+        MAX_AGE_TICKS = builder
+                .comment("尸体存在多少 tick 后消失。20 tick = 1 秒，默认 12000 = 10 分钟。")
+                .defineInRange("maxAgeTicks", 12000, 20, 240000);
+
+        ACTIVE_RADIUS = builder
+                .comment("多少格内有玩家才跑物理。远处的尸体冻结，省 CPU；玩家走近会接着模拟。")
+                .defineInRange("activeRadius", 64.0D, 8.0D, 256.0D);
+
+        MAX_PER_AREA = builder
+                .comment("同一片区域最多保留多少具尸体，超出时删最老的。")
+                .defineInRange("maxCorpses", 32, 1, 512);
         builder.pop();
 
         SPEC = builder.build();
@@ -46,5 +61,17 @@ public final class PlanConfig {
 
     public static PlanMode mode() {
         return MODE.get();
+    }
+
+    public static int maxAgeTicks() {
+        return MAX_AGE_TICKS.get();
+    }
+
+    public static double activeRadius() {
+        return ACTIVE_RADIUS.get();
+    }
+
+    public static int maxPerArea() {
+        return MAX_PER_AREA.get();
     }
 }

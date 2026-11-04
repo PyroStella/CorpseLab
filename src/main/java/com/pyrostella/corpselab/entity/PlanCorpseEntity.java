@@ -1,6 +1,7 @@
 package com.pyrostella.corpselab.entity;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +13,7 @@ import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import com.pyrostella.corpselab.net.PlanPosePacket;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.BodyPlanCodec;
+import com.pyrostella.corpselab.plan.PlanConfig;
 import com.pyrostella.corpselab.plan.PlanRagdoll;
 import com.pyrostella.corpselab.physics.RigidBody;
 
@@ -22,9 +24,11 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.PacketDistributor;
 
@@ -51,6 +55,9 @@ public class PlanCorpseEntity extends Entity {
     /** 死亡生物的类型，客户端据此找模型与贴图 */
     private ResourceLocation sourceType = new ResourceLocation("minecraft", "pig");
 
+    /** 已存在的 tick 数，用于过期清理 */
+    private int age;
+
     public PlanCorpseEntity(EntityType<?> type, Level level) {
         super(type, level);
         this.noPhysics = true;
@@ -76,6 +83,17 @@ public class PlanCorpseEntity extends Entity {
         corpse.plan = plan;
         corpse.sourceType = sourceType;
         corpse.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
+
+        // 同区域尸体数量上限：超出时删最老的，避免一地尸体拖垮服务端
+        List<PlanCorpseEntity> existing = level.getEntitiesOfClass(PlanCorpseEntity.class,
+                new AABB(pos, pos).inflate(96.0D));
+        int max = PlanConfig.maxPerArea();
+        if (existing.size() >= max) {
+            existing.sort(Comparator.comparingInt(PlanCorpseEntity::age).reversed());
+            for (int i = 0; i < existing.size() - max + 1; i++) {
+                existing.get(i).discard();
+            }
+        }
         corpse.ragdoll = new PlanRagdoll(plan, pos.x, pos.y, pos.z,
                 Math.toRadians(yaw), impulse);
         corpse.ragdoll.setCollider(new LevelCollider(level));
@@ -95,16 +113,50 @@ public class PlanCorpseEntity extends Entity {
             return;
         }
 
+        this.age++;
+        if (this.age > PlanConfig.maxAgeTicks()) {
+            this.discard();
+            return;
+        }
+
         if (this.ragdoll == null) {
+            return;
+        }
+
+        // 远处冻结：不跑物理也不发姿态，玩家走近会接着模拟，省 CPU
+        if (!this.hasNearbyPlayer()) {
             return;
         }
 
         this.ragdoll.step(0.05D);
 
-        // 姿态每 tick 全量同步。盒子数量不大时够用，后续可以改成量化 + 变化才发。
-        CorpseLabNetwork.CHANNEL.send(
-                PacketDistributor.TRACKING_ENTITY.with(() -> this),
-                PlanPosePacket.of(this));
+        // 已经躺稳的尸体没必要每 tick 全量发姿态，降频到 1 秒一次
+        boolean settled = this.ragdoll.isSettled();
+        if (!settled || this.tickCount % 20 == 0) {
+            CorpseLabNetwork.CHANNEL.send(
+                    PacketDistributor.TRACKING_ENTITY.with(() -> this),
+                    PlanPosePacket.of(this));
+        }
+    }
+
+    /** 是否有玩家在活动半径内 */
+    private boolean hasNearbyPlayer() {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return false;
+        }
+        double radius = PlanConfig.activeRadius();
+        double radiusSqr = radius * radius;
+        for (ServerPlayer player : serverLevel.players()) {
+            if (player.distanceToSqr(this) <= radiusSqr) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 存在了多少 tick，用于过期清理和最老优先淘汰 */
+    public int age() {
+        return this.age;
     }
 
     /** 服务端取物理骨架 */
@@ -154,6 +206,7 @@ public class PlanCorpseEntity extends Entity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        this.age = tag.getInt("Age");
         if (tag.contains("SourceType")) {
             this.sourceType = new ResourceLocation(tag.getString("SourceType"));
         }
@@ -174,6 +227,7 @@ public class PlanCorpseEntity extends Entity {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("Age", this.age);
         tag.putString("SourceType", this.sourceType.toString());
         if (this.plan.boxCount() > 0) {
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
