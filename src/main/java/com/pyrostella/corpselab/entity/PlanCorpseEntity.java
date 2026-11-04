@@ -1,0 +1,193 @@
+package com.pyrostella.corpselab.entity;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jetbrains.annotations.Nullable;
+import org.joml.Quaternionf;
+
+import com.pyrostella.corpselab.CorpseLab;
+import com.pyrostella.corpselab.CorpseLabRegistry;
+import com.pyrostella.corpselab.net.CorpseLabNetwork;
+import com.pyrostella.corpselab.net.PlanPosePacket;
+import com.pyrostella.corpselab.plan.BodyPlan;
+import com.pyrostella.corpselab.plan.BodyPlanCodec;
+import com.pyrostella.corpselab.plan.PlanRagdoll;
+import com.pyrostella.corpselab.physics.RigidBody;
+
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.network.PacketDistributor;
+
+/**
+ * 用通用骨架驱动的尸体实体。
+ *
+ * <p>服务端持有 {@link PlanRagdoll} 跑物理，每个 tick 把各刚体的位姿发给跟踪者；
+ * 客户端只负责把这些位姿画出来（当前是线框，后续换成模型部件）。</p>
+ */
+public class PlanCorpseEntity extends Entity {
+
+    private static final BodyPlan EMPTY = new BodyPlan(List.of(), List.of());
+
+    /** 客户端保存最近两帧姿态用于插值 */
+    @Nullable
+    private PoseBuffer poses;
+
+    /** 服务端：物理骨架 */
+    @Nullable
+    private PlanRagdoll ragdoll;
+
+    private BodyPlan plan = EMPTY;
+
+    /** 死亡生物的类型，客户端据此找模型与贴图 */
+    private ResourceLocation sourceType = new ResourceLocation("minecraft", "pig");
+
+    public PlanCorpseEntity(EntityType<?> type, Level level) {
+        super(type, level);
+        this.noPhysics = true;
+        this.setNoGravity(true);
+    }
+
+    /**
+     * 服务端生成一具尸体。
+     *
+     * @param level   服务端世界
+     * @param plan    骨架
+     * @param pos     死亡位置（脚底）
+     * @param yaw     死亡朝向
+     * @param impulse 死亡时的动量
+     */
+    public static PlanCorpseEntity spawn(ServerLevel level, BodyPlan plan, ResourceLocation sourceType,
+                                         Vec3 pos, float yaw, Vec3 impulse) {
+        PlanCorpseEntity corpse = CorpseLabRegistry.PLAN_CORPSE.get().create(level);
+        if (corpse == null) {
+            return null;
+        }
+
+        corpse.plan = plan;
+        corpse.sourceType = sourceType;
+        corpse.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
+        corpse.ragdoll = new PlanRagdoll(plan, pos.x, pos.y, pos.z,
+                Math.toRadians(yaw), impulse);
+        corpse.ragdoll.setCollider(new LevelCollider(level));
+
+        level.addFreshEntity(corpse);
+        return corpse;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+
+        if (this.level().isClientSide) {
+            if (this.poses != null) {
+                this.poses.onClientTick();
+            }
+            return;
+        }
+
+        if (this.ragdoll == null) {
+            return;
+        }
+
+        this.ragdoll.step(0.05D);
+
+        // 姿态每 tick 全量同步。盒子数量不大时够用，后续可以改成量化 + 变化才发。
+        CorpseLabNetwork.CHANNEL.send(
+                PacketDistributor.TRACKING_ENTITY.with(() -> this),
+                PlanPosePacket.of(this));
+    }
+
+    /** 服务端取物理骨架 */
+    @Nullable
+    public PlanRagdoll ragdoll() {
+        return this.ragdoll;
+    }
+
+    public BodyPlan plan() {
+        return this.plan;
+    }
+
+    public ResourceLocation sourceType() {
+        return this.sourceType;
+    }
+
+    public void setSourceType(ResourceLocation sourceType) {
+        this.sourceType = sourceType;
+    }
+
+    public void setPlan(BodyPlan plan) {
+        this.plan = plan;
+        if (this.level().isClientSide) {
+            this.poses = new PoseBuffer(plan.boxCount());
+        }
+    }
+
+    /** 客户端取姿态缓冲，还没收到数据时返回 null */
+    @Nullable
+    public PoseBuffer poses() {
+        return this.poses;
+    }
+
+    /** 收到一帧姿态 */
+    public void acceptPose(Vec3[] positions, Quaternionf[] rotations) {
+        if (this.poses == null) {
+            this.poses = new PoseBuffer(positions.length);
+        }
+        this.poses.push(positions, rotations);
+    }
+
+    // ---------- 存档 ----------
+
+    @Override
+    protected void defineSynchedData() {
+    }
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        if (tag.contains("SourceType")) {
+            this.sourceType = new ResourceLocation(tag.getString("SourceType"));
+        }
+        if (tag.contains("Plan")) {
+            try {
+                FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(tag.getByteArray("Plan")));
+                this.plan = BodyPlanCodec.read(buf);
+                if (!this.level().isClientSide) {
+                    this.ragdoll = new PlanRagdoll(this.plan, this.getX(), this.getY(), this.getZ(),
+                            Math.toRadians(this.getYRot()), null);
+                    this.ragdoll.setCollider(new LevelCollider(this.level()));
+                }
+            } catch (Exception e) {
+                CorpseLab.LOGGER.error("尸体骨架存档损坏", e);
+            }
+        }
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putString("SourceType", this.sourceType.toString());
+        if (this.plan.boxCount() > 0) {
+            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            BodyPlanCodec.write(buf, this.plan);
+            tag.putByteArray("Plan", ByteBufUtil.getBytes(buf));
+        }
+    }
+
+    /** 供包类使用：按骨骼下标取刚体 */
+    public List<RigidBody> rigidBodies() {
+        List<RigidBody> list = new ArrayList<>();
+        if (this.ragdoll != null) {
+            list.addAll(this.ragdoll.bodies());
+        }
+        return list;
+    }
+}

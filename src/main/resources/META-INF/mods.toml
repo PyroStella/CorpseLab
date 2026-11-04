@@ -1,0 +1,43 @@
+# Forge 模组描述文件（TOML v0.5.0）
+# 花括号占位符由 build.gradle 的 processResources 用 gradle.properties 的值展开。
+
+# 模组加载器类型，普通 @Mod 模组固定为 javafml
+modLoader="javafml" # 必填
+
+# 加载器版本范围
+loaderVersion="${loader_version_range}" # 必填
+
+# 模组许可证
+license="${mod_license}"
+
+[[mods]] # 必填
+    # 模组 ID，必须与主类 @Mod 里的常量一致
+    modId="${mod_id}" # 必填
+    version="${mod_version}" # 必填
+    displayName="${mod_name}" # 必填
+    authors="${mod_authors}"
+    description='''${mod_description}'''
+
+# 对 Forge 的依赖
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# 对 Minecraft 的依赖
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# 对 GeckoLib 的依赖：geo 模型解析与渲染要用
+[[dependencies.${mod_id}]]
+    modId="geckolib"
+    mandatory=true
+    versionRange="[4.8.4,)"
+    ordering="AFTER"
+    side="BOTH"
