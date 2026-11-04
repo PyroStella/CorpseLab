@@ -41,8 +41,8 @@ public final class PlanConfig {
                 .defineEnum("mode", PlanMode.ARTICULATED);
 
         MAX_AGE_TICKS = builder
-                .comment("尸体存在多少 tick 后消失。20 tick = 1 秒，默认 12000 = 10 分钟。")
-                .defineInRange("maxAgeTicks", 12000, 20, 240000);
+                .comment("尸体存在多少 tick 后消失。20 tick = 1 秒，默认 2400 = 2 分钟。")
+                .defineInRange("maxAgeTicks", 2400, 20, 240000);
 
         ACTIVE_RADIUS = builder
                 .comment("多少格内有玩家才跑物理。远处的尸体冻结，省 CPU；玩家走近会接着模拟。")
