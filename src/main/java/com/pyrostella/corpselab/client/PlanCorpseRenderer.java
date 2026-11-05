@@ -30,8 +30,7 @@ import org.joml.Quaternionf;
  */
 public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
 
-    private static final ResourceLocation FALLBACK =
-            new ResourceLocation("minecraft", "textures/entity/pig/pig.png");
+    private static final ResourceLocation FALLBACK = new ResourceLocation("minecraft", "textures/entity/pig/pig.png");
 
     public PlanCorpseRenderer(EntityRendererProvider.Context context) {
         super(context);

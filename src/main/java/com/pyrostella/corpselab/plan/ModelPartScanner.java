@@ -1,8 +1,12 @@
 package com.pyrostella.corpselab.plan;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.client.model.AgeableListModel;
 import net.minecraft.client.model.EntityModel;
@@ -12,9 +16,12 @@ import net.minecraft.client.model.geom.ModelPart;
 /**
  * 把一个原版模型拆成 {@link BodyPlan}。
  *
- * <p><b>规则</b>：一个可见的 {@link ModelPart} 对应一个刚体，part 内部的多个 cuboid 合并成一个盒子；
- * 关节直接照抄 part 的父子关系。这样不需要为任何生物手写拓扑——僵尸自动 6 盒 5 关节，
- * 蜘蛛自动身体加八条腿，末影龙自动一串。</p>
+ * <p><b>规则</b>：一个可见的 {@link ModelPart} 对应一个刚体，part 内部的多个 cuboid 合并成一个盒子。
+ * 关节有三路来源，优先级从高到低：part 的父子关系、{@link ModelTopology} 的手写拓补表、
+ * 按几何关系自动补全（见 {@link ModelTopology#resolve}）。</p>
+ *
+ * <p><b>为什么需要拓补表</b>：原版模型里四肢常常是根节点的兄弟——僵尸的腿和身体平级，
+ * 模型树里并没有"腿属于身体"这回事。只照抄 children 的话，这些生物的尸体会散成一地碎块。</p>
  *
  * <p><b>已知简化</b>：只累加平移，不累加 part 的旋转与缩放。原版模型在默认姿态下旋转基本为 0，
  * 所以尺寸和相对位置是对的；带静态旋转的部件（比如某些模型的斜置角）会有偏差。</p>
@@ -51,38 +58,59 @@ public final class ModelPartScanner {
     /** 骨架 + 部件对应关系（客户端渲染要用后者） */
     public static ScanResult scanDetailed(EntityModel<?> model) {
         List<BodyPlan.Box> boxes = new ArrayList<>();
-        List<BodyPlan.Joint> joints = new ArrayList<>();
+        List<BodyPlan.Joint> treeJoints = new ArrayList<>();
         List<PartRef> parts = new ArrayList<>();
 
-        for (ModelPart root : roots(model)) {
-            walk(root, "", -1, 0.0D, 0.0D, 0.0D, boxes, joints, parts);
+        // 同一个 part 可能既出现在 headParts/bodyParts 里、又是别的部件的子节点，
+        // 重复扫描会多出一个重叠的盒子，所以按实例去重
+        Set<ModelPart> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        ModelTopology.Table topology = ModelTopology.tableFor(model);
+        for (Map.Entry<String, ModelPart> root : roots(model, topology).entrySet()) {
+            walk(root.getValue(), root.getKey(), -1, 0.0D, 0.0D, 0.0D,
+                    boxes, treeJoints, parts, visited);
         }
 
-        return new ScanResult(new BodyPlan(List.copyOf(boxes), List.copyOf(joints)), List.copyOf(parts));
+        List<BodyPlan.Joint> joints = ModelTopology.resolve(
+                topology, List.copyOf(boxes), List.copyOf(treeJoints));
+
+        return new ScanResult(new BodyPlan(List.copyOf(boxes), joints), List.copyOf(parts));
     }
 
-    /** 找到模型的根部件。原版两条路径：层级模型取 root，可长大模型取头/身两张表 */
-    private static List<ModelPart> roots(EntityModel<?> model) {
+    /**
+     * 找到模型的根部件并给它们起名字。
+     *
+     * <p>层级模型只有一个 root，名字留给子部件（子部件的键名就已经是 {@code head}/{@code body0} 这种）。
+     * 可长大模型没有 root，只能取 {@code headParts()/bodyParts()}，而下标本身没有含义，
+     * 所以名字从拓补表里查，查不到就退回 {@code head0}/{@code body0}。</p>
+     */
+    private static Map<String, ModelPart> roots(EntityModel<?> model, ModelTopology.Table topology) {
+        Map<String, ModelPart> roots = new LinkedHashMap<>();
+
         if (model instanceof HierarchicalModel<?> hierarchical) {
-            return List.of(hierarchical.root());
-        }
-        if (model instanceof AgeableListModel<?> ageable) {
-            List<ModelPart> list = new ArrayList<>();
-            for (ModelPart part : ageable.headParts()) {
-                list.add(part);
+            roots.put("", hierarchical.root());
+        } else if (model instanceof AgeableListModel<?> ageable) {
+            int headIndex = 0;
+            for (ModelPart head : ageable.headParts()) {
+                roots.putIfAbsent(ModelTopology.headName(topology, headIndex++), head);
             }
-            for (ModelPart part : ageable.bodyParts()) {
-                list.add(part);
+            int bodyIndex = 0;
+            for (ModelPart body : ageable.bodyParts()) {
+                roots.putIfAbsent(ModelTopology.bodyName(topology, bodyIndex++), body);
             }
-            return list;
         }
-        return List.of();
+
+        return roots;
     }
 
     private static void walk(ModelPart part, String path, int parentBoxIndex,
                              double parentX, double parentY, double parentZ,
-                             List<BodyPlan.Box> boxes, List<BodyPlan.Joint> joints,
-                             List<PartRef> parts) {
+                             List<BodyPlan.Box> boxes, List<BodyPlan.Joint> treeJoints,
+                             List<PartRef> parts, Set<ModelPart> visited) {
+        if (!visited.add(part)) {
+            return;
+        }
+
         // 部件自己的平移是相对父部件的，累加得到模型空间位置（单位仍是像素）
         double x = parentX + part.x;
         double y = parentY + part.y;
@@ -132,13 +160,13 @@ public final class ModelPartScanner {
                     (float) ((minZ + maxZ) * 0.5D * PIXEL)));
 
             if (parentBoxIndex >= 0) {
-                joints.add(new BodyPlan.Joint(selfIndex, parentBoxIndex));
+                treeJoints.add(new BodyPlan.Joint(selfIndex, parentBoxIndex));
             }
         }
 
         for (Map.Entry<String, ModelPart> entry : part.children.entrySet()) {
             walk(entry.getValue(), path.isEmpty() ? entry.getKey() : path + "." + entry.getKey(),
-                    selfIndex, x, y, z, boxes, joints, parts);
+                    selfIndex, x, y, z, boxes, treeJoints, parts, visited);
         }
     }
 }
