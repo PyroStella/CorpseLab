@@ -70,6 +70,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
 
         for (BodyPlan.Box box : plan.boxes()) {
             PartRef ref = binding.parts().get(box.index());
+            BodyPlan.Box modelBox = binding.plan().boxes().get(box.index());
             var position = poses.position(box.index());
             Quaternionf rotation = poses.rotation(box.index(), new Quaternionf());
 
@@ -80,6 +81,10 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
             poseStack.mulPose(rotation);
             // 进入原版模型空间：Y 向下、X 左右相反。两次翻转不改变手性，仍是正常旋转
             poseStack.scale(-1.0F, -1.0F, 1.0F);
+            // 每具尸体的 BodyPlan 已经包含实体当时的渲染尺寸，模型方块也必须同步缩放
+            poseStack.scale(scale(box.hx(), modelBox.hx()),
+                    scale(box.hy(), modelBox.hy()),
+                    scale(box.hz(), modelBox.hz()));
             // 该部件的方块是以 cuboid 中心为原点建模的，抵消掉才能让中心落在刚体位置
             poseStack.translate(-ref.cx(), -ref.cy(), -ref.cz());
 
@@ -87,6 +92,10 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
 
             poseStack.popPose();
         }
+    }
+
+    private static float scale(double actual, double model) {
+        return model > 1.0E-6D ? (float) (actual / model) : 1.0F;
     }
 
     /**

@@ -43,7 +43,17 @@ public final class ModelPartScanner {
      * @param part 模型部件
      * @param cx   cuboid 包围盒中心，相对部件原点，模型空间单位（像素 / 16，未做 Y 翻转）
      */
-    public record PartRef(ModelPart part, float cx, float cy, float cz) {
+    public record PartRef(ModelPart part, float cx, float cy, float cz, PartGroup group) {
+    }
+
+    /** 幼年模型绘制时头部和身体使用不同变换 */
+    public enum PartGroup {
+        NORMAL,
+        HEAD,
+        BODY
+    }
+
+    private record RootRef(String path, ModelPart part, PartGroup group) {
     }
 
     /** 扫描结果：骨架 + 与盒子一一对应的模型部件 */
@@ -66,8 +76,8 @@ public final class ModelPartScanner {
         Set<ModelPart> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 
         ModelTopology.Table topology = ModelTopology.tableFor(model);
-        for (Map.Entry<String, ModelPart> root : roots(model, topology).entrySet()) {
-            walk(root.getValue(), root.getKey(), -1, 0.0D, 0.0D, 0.0D,
+        for (RootRef root : roots(model, topology)) {
+            walk(root.part(), root.path(), root.group(), -1, 0.0D, 0.0D, 0.0D,
                     boxes, treeJoints, parts, visited);
         }
 
@@ -84,26 +94,28 @@ public final class ModelPartScanner {
      * 可长大模型没有 root，只能取 {@code headParts()/bodyParts()}，而下标本身没有含义
      * 所以名字从拓补表里查，查不到就退回 {@code head0}/{@code body0}。</p>
      */
-    private static Map<String, ModelPart> roots(EntityModel<?> model, ModelTopology.Table topology) {
-        Map<String, ModelPart> roots = new LinkedHashMap<>();
+    private static List<RootRef> roots(EntityModel<?> model, ModelTopology.Table topology) {
+        Map<String, RootRef> roots = new LinkedHashMap<>();
 
         if (model instanceof HierarchicalModel<?> hierarchical) {
-            roots.put("", hierarchical.root());
+            roots.put("", new RootRef("", hierarchical.root(), PartGroup.NORMAL));
         } else if (model instanceof AgeableListModel<?> ageable) {
             int headIndex = 0;
             for (ModelPart head : ageable.headParts()) {
-                roots.putIfAbsent(ModelTopology.headName(topology, headIndex++), head);
+                String name = ModelTopology.headName(topology, headIndex++);
+                roots.putIfAbsent(name, new RootRef(name, head, PartGroup.HEAD));
             }
             int bodyIndex = 0;
             for (ModelPart body : ageable.bodyParts()) {
-                roots.putIfAbsent(ModelTopology.bodyName(topology, bodyIndex++), body);
+                String name = ModelTopology.bodyName(topology, bodyIndex++);
+                roots.putIfAbsent(name, new RootRef(name, body, PartGroup.BODY));
             }
         }
 
-        return roots;
+        return List.copyOf(roots.values());
     }
 
-    private static void walk(ModelPart part, String path, int parentBoxIndex,
+    private static void walk(ModelPart part, String path, PartGroup group, int parentBoxIndex,
                              double parentX, double parentY, double parentZ,
                              List<BodyPlan.Box> boxes, List<BodyPlan.Joint> treeJoints,
                              List<PartRef> parts, Set<ModelPart> visited) {
@@ -157,7 +169,7 @@ public final class ModelPartScanner {
             parts.add(new PartRef(part,
                     (float) ((minX + maxX) * 0.5D * PIXEL),
                     (float) ((minY + maxY) * 0.5D * PIXEL),
-                    (float) ((minZ + maxZ) * 0.5D * PIXEL)));
+                    (float) ((minZ + maxZ) * 0.5D * PIXEL), group));
 
             if (parentBoxIndex >= 0) {
                 treeJoints.add(new BodyPlan.Joint(selfIndex, parentBoxIndex));
@@ -166,7 +178,7 @@ public final class ModelPartScanner {
 
         for (Map.Entry<String, ModelPart> entry : part.children.entrySet()) {
             walk(entry.getValue(), path.isEmpty() ? entry.getKey() : path + "." + entry.getKey(),
-                    selfIndex, x, y, z, boxes, treeJoints, parts, visited);
+                    group, selfIndex, x, y, z, boxes, treeJoints, parts, visited);
         }
     }
 }

@@ -34,7 +34,7 @@ public final class PlanCorpseHandler {
             return;
         }
 
-        BodyPlan plan = PlanRegistry.get(EntityType.getKey(entity.getType()));
+        BodyPlan plan = PlanRegistry.get(entity);
         if (plan == null) {
             // 还没收到客户端上报，这一只就先不留尸体
             return;

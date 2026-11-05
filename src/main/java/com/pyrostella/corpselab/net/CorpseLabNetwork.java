@@ -7,7 +7,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class CorpseLabNetwork {
 
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(CorpseLab.MOD_ID, "main"),
@@ -56,6 +56,12 @@ public final class CorpseLabNetwork {
                 .encoder(PlanSubmitPacket::encode)
                 .decoder(PlanSubmitPacket::new)
                 .consumerMainThread(PlanSubmitPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(PlanInstancePacket.class, id++)
+                .encoder(PlanInstancePacket::encode)
+                .decoder(PlanInstancePacket::new)
+                .consumerMainThread(PlanInstancePacket::handle)
                 .add();
 
         CHANNEL.messageBuilder(PlanSyncPacket.class, id++)

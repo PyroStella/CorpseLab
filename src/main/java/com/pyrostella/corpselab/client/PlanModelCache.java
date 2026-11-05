@@ -1,14 +1,8 @@
 package com.pyrostella.corpselab.client;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.jetbrains.annotations.Nullable;
-
+import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.ModelPartScanner;
 import com.pyrostella.corpselab.plan.ModelPartScanner.PartRef;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -16,6 +10,10 @@ import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+
 
 /**
  * 客户端缓存：生物类型 → 模型部件表
@@ -33,10 +31,8 @@ public final class PlanModelCache {
      * @param renderer 原渲染器，用来取贴图
      * @param probe    用来取贴图的假实体
      */
-    public record Binding(List<PartRef> parts,
-                          EntityModel<?> model,
-                          LivingEntityRenderer<?, ?> renderer,
-                          LivingEntity probe) {
+    public record Binding(BodyPlan plan, List<PartRef> parts, EntityModel<?> model,
+                          LivingEntityRenderer<?, ?> renderer, LivingEntity probe) {
     }
 
     private static final Map<EntityType<?>, Binding> CACHE = new HashMap<>();
@@ -87,7 +83,7 @@ public final class PlanModelCache {
             return null;
         }
 
-        return new Binding(result.parts(), model, livingRenderer, probe);
+        return new Binding(result.plan(), result.parts(), model, livingRenderer, probe);
     }
 
     public static void clear() {
