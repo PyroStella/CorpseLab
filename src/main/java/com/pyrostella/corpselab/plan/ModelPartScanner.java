@@ -120,8 +120,10 @@ public final class ModelPartScanner {
             double mass = Math.max(0.05D, volume * DENSITY);
 
             selfIndex = boxes.size();
+            // 枢轴 = 部件原点在模型空间的位置（姿势绕它旋转，关节也长在这里）
             boxes.add(new BodyPlan.Box(selfIndex, path.isEmpty() ? "root" : path,
-                    cx, cy, cz, hx, hy, hz, mass));
+                    cx, cy, cz, hx, hy, hz, mass,
+                    x * PIXEL, y * PIXEL, z * PIXEL));
 
             // 部件本地坐标下的 cuboid 中心（方块单位），渲染时用来把 box 中心对准刚体
             parts.add(new PartRef(part,

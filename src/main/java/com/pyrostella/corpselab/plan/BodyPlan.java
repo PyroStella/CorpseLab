@@ -29,10 +29,15 @@ public record BodyPlan(List<Box> boxes, List<Joint> joints) {
      * @param hy     半高
      * @param hz     半深
      * @param mass   质量，按体积估算
+     * @param px     部件的枢轴 X（方块）。原版部件绕自己的原点旋转，关节也长在这里，
+     *               所以姿势继承与关节锚点都要用它，不能用盒子中心
+     * @param py     枢轴 Y
+     * @param pz     枢轴 Z
      */
     public record Box(int index, String path,
                       double cx, double cy, double cz,
-                      double hx, double hy, double hz, double mass) {
+                      double hx, double hy, double hz, double mass,
+                      double px, double py, double pz) {
     }
 
     /**
@@ -63,6 +68,8 @@ public record BodyPlan(List<Box> boxes, List<Joint> joints) {
                     .append(", ").append(fmt(box.cz())).append(')')
                     .append(" half=(").append(fmt(box.hx())).append(", ").append(fmt(box.hy()))
                     .append(", ").append(fmt(box.hz())).append(')')
+                    .append(" pivot=(").append(fmt(box.px())).append(", ").append(fmt(box.py()))
+                    .append(", ").append(fmt(box.pz())).append(')')
                     .append(" mass=").append(fmt(box.mass()));
         }
         for (Joint joint : this.joints) {

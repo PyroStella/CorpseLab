@@ -3,6 +3,7 @@ package com.pyrostella.corpselab;
 import com.mojang.logging.LogUtils;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
+import com.pyrostella.corpselab.plan.PlanConfig;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -27,7 +28,7 @@ public class CorpseLab {
         ctx.registerConfig(ModConfig.Type.CLIENT, CorpseLabConfig.CLIENT_SPEC);
         // 通用骨架尸体系统自己的配置（形态：铰接 / 自由）
         // 必须指定独立文件名：Forge 默认按 <modid>-<type>.toml 命名，会和上面那份 SERVER 配置撞名
-        ctx.registerConfig(ModConfig.Type.SERVER, com.pyrostella.corpselab.plan.PlanConfig.SPEC,
+        ctx.registerConfig(ModConfig.Type.SERVER, PlanConfig.SPEC,
                 "corpselab-plan-server.toml");
 
         CorpseLabRegistry.ENTITY_TYPES.register(modBus);

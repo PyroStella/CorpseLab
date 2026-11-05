@@ -14,6 +14,7 @@ import com.pyrostella.corpselab.net.PlanPosePacket;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.BodyPlanCodec;
 import com.pyrostella.corpselab.plan.PlanConfig;
+import com.pyrostella.corpselab.plan.PlanPose;
 import com.pyrostella.corpselab.plan.PlanRagdoll;
 import com.pyrostella.corpselab.physics.RigidBody;
 
@@ -27,6 +28,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -72,9 +74,11 @@ public class PlanCorpseEntity extends Entity {
      * @param pos     死亡位置（脚底）
      * @param yaw     死亡朝向
      * @param impulse 死亡时的动量
+     * @param source  死者；用来继承死亡那一刻的骨骼姿势，可以为 null
      */
     public static PlanCorpseEntity spawn(ServerLevel level, BodyPlan plan, ResourceLocation sourceType,
-                                         Vec3 pos, float yaw, Vec3 impulse) {
+                                         Vec3 pos, float yaw, Vec3 impulse,
+                                         @Nullable LivingEntity source) {
         PlanCorpseEntity corpse = CorpseLabRegistry.PLAN_CORPSE.get().create(level);
         if (corpse == null) {
             return null;
@@ -94,8 +98,10 @@ public class PlanCorpseEntity extends Entity {
                 existing.get(i).discard();
             }
         }
+        // 继承死亡那一刻的姿势：奔跑、张望、下蹲都被记住，尸体不是凭空站直的
+        PlanPose.Frame[] pose = source == null ? null : PlanPose.frames(plan, source);
         corpse.ragdoll = new PlanRagdoll(plan, pos.x, pos.y, pos.z,
-                Math.toRadians(yaw), impulse);
+                Math.toRadians(yaw), impulse, pose);
         corpse.ragdoll.setCollider(new LevelCollider(level));
 
         level.addFreshEntity(corpse);

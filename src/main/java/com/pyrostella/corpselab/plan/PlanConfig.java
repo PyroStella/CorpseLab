@@ -27,6 +27,7 @@ public final class PlanConfig {
     private static final ForgeConfigSpec.IntValue MAX_AGE_TICKS;
     private static final ForgeConfigSpec.DoubleValue ACTIVE_RADIUS;
     private static final ForgeConfigSpec.IntValue MAX_PER_AREA;
+    private static final ForgeConfigSpec.BooleanValue SELF_COLLISION;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -51,6 +52,11 @@ public final class PlanConfig {
         MAX_PER_AREA = builder
                 .comment("同一片区域最多保留多少具尸体，超出时删最老的。")
                 .defineInRange("maxCorpses", 32, 1, 512);
+
+        SELF_COLLISION = builder
+                .comment("部件之间是否互相碰撞（手臂不能插进胸腔、腿不能穿过另一条腿）。",
+                        "关掉可以省一点 CPU，代价是肢体可能互相穿插。")
+                .define("selfCollision", true);
         builder.pop();
 
         SPEC = builder.build();
@@ -73,5 +79,9 @@ public final class PlanConfig {
 
     public static int maxPerArea() {
         return MAX_PER_AREA.get();
+    }
+
+    public static boolean selfCollision() {
+        return SELF_COLLISION.get();
     }
 }

@@ -32,6 +32,16 @@ public final class SelfCollision implements Constraint {
     /** Compliance keeps the push soft, so a settling pile eases apart instead of popping. */
     public double compliance = 0.0002D;
 
+    /**
+     * Largest push per solve, in blocks. Zero means unlimited.
+     *
+     * <p>Used by the articulated plan corpses: their part positions are pinned to the parent's
+     * anchor, so every push that survives the pin comes back as spin. Capping the step keeps
+     * the push a gentle nudge spread over many substeps instead of one shove that the joint
+     * turns into a spin.</p>
+     */
+    public double maxCorrection;
+
     /** Registers every sphere of one part against every sphere of another. */
     public void addPair(RigidBody first, List<Vector3d> firstCentres, double firstRadius,
                         RigidBody second, List<Vector3d> secondCentres, double secondRadius) {
@@ -82,6 +92,9 @@ public final class SelfCollision implements Constraint {
 
             // Move the first sphere away from the second, and vice versa.
             delta.div(distance).mul(-(minimum - distance));
+            if (this.maxCorrection > 0.0D && delta.length() > this.maxCorrection) {
+                delta.normalize(this.maxCorrection);
+            }
             XpbdMath.applyPairCorrection(first.body, pa, second.body, pb, delta, compliance, h, false);
         }
     }

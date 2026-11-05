@@ -42,7 +42,7 @@ public final class PlanCorpseHandler {
         }
 
         PlanCorpseEntity corpse = PlanCorpseEntity.spawn(level, plan, EntityType.getKey(entity.getType()),
-                entity.position(), entity.getYRot(), entity.getDeltaMovement().scale(20.0D));
+                entity.position(), entity.getYRot(), entity.getDeltaMovement().scale(20.0D), entity);
         if (corpse != null) {
             CorpseLab.LOGGER.debug("生成尸体 {}", EntityType.getKey(entity.getType()));
         }
