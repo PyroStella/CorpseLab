@@ -3,16 +3,19 @@ package com.pyrostella.corpselab.physics;
 import org.joml.Vector3d;
 
 /**
- * One sample point on a body resting against one solid world box.
+ * One sample point of a rigid body resting against one solid world box.
  *
- * <p>The normal is chosen once, when the contact is generated, and then held for the
- * whole step. Re-picking the least-penetrating axis every substep makes a body sitting
- * on an edge flip between normals and buzz.
+ * <p>The normal is chosen once, when the contact is generated, and held for the whole step:
+ * re-picking the least-penetrating axis every substep makes a body sitting on an edge flip
+ * between normals and buzz.</p>
  */
 public final class Contact {
 
     /** Blocks per second at which pre-existing overlap is pushed out. */
     private static final double RECOVERY_SPEED = 2.0D;
+
+    /** 冲击速度低于这个值时不反弹，否则躺在地上的尸体会一直颤 */
+    private static final double RESTITUTION_THRESHOLD = 2.0D;
 
     public final RigidBody body;
     private final Vector3d localPoint = new Vector3d();
@@ -25,12 +28,15 @@ public final class Contact {
     public double restitution = 0.0D;
 
     private final Vector3d worldPoint = new Vector3d();
+    private final Vector3d velocity = new Vector3d();
     private final Vector3d prevWorldPoint = new Vector3d();
     private final Vector3d scratch = new Vector3d();
 
-    private double normalLambda;
     private double normalVelocityBefore;
     private boolean active;
+
+    /** 本子步还剩多少距离可以把点推出表面；多遍迭代共享，见 {@link #beginSubstep} */
+    private double budget;
 
     Contact(RigidBody body, Vector3d localPoint, Aabb box, Vector3d normal) {
         this.body = body;
@@ -64,92 +70,106 @@ public final class Contact {
         return p.z - box.minZ();
     }
 
-    void beginSubstep() {
-        normalLambda = 0.0D;
-        active = false;
+    void beginSubstep(double h, int passes) {
+        this.active = false;
 
-        // Point velocity before the position solve, for restitution.
-        body.toWorld(localPoint, worldPoint);
-        normalVelocityBefore = body.pointVelocity(worldPoint, scratch).dot(normal);
+        this.body.toWorld(this.localPoint, this.worldPoint);
+        this.normalVelocityBefore = this.body.pointVelocity(this.worldPoint, this.scratch).dot(this.normal);
 
         // Where this material point was at the start of the substep, for static friction.
-        prevWorldPoint.set(localPoint);
-        body.prevRot.transform(prevWorldPoint).add(body.prevPos);
+        this.prevWorldPoint.set(this.localPoint);
+        this.body.prevRot.transform(this.prevWorldPoint).add(this.body.prevPos);
+
+        // 一个子步允许推出的总距离是"这点本子步陷进去的深度 + 固定的恢复速度"，
+        // 分摊到每一遍迭代上：冲击不会被每遍重复化解成过量弹射，后面几遍又还有余额
+        // 把被关节拽回去的点重新推出来
+        int slices = Math.max(1, passes);
+        this.budget = (Math.max(0.0D, -this.normalVelocityBefore) * h + RECOVERY_SPEED * h) / slices;
     }
 
     void solvePosition(double h) {
-        body.toWorld(localPoint, worldPoint);
-
-        double depth = depthAlong(box, worldPoint, normal);
+        this.body.toWorld(this.localPoint, this.worldPoint);
+        double depth = depthAlong(this.box, this.worldPoint, this.normal);
         if (depth <= 0.0D) {
             return;
         }
-        active = true;
+        this.active = true;
 
         // Cap how much overlap is undone in one substep.
         //
         // Undoing a deep overlap all at once turns into velocity: the position solve
-        // derives speed from the distance moved, so ejecting a limb 0.4 blocks in a 3 ms
-        // substep hands it 128 blocks/s and fires it across the map. That happens for real
-        // whenever a body is driven into terrain or spawned inside a block.
-        //
-        // The budget is whatever the point travelled into the surface this substep - which
-        // keeps genuine impacts fully resolved, so nothing tunnels - plus a bounded
-        // recovery rate for overlap that was already there.
-        double approach = Math.max(0.0D, -normalVelocityBefore) * h;
-        double allowed = approach + RECOVERY_SPEED * h;
-        double corrected = Math.min(depth, allowed);
-
-        Vector3d corr = new Vector3d(normal).mul(corrected);
-        normalLambda += XpbdMath.applyPairCorrection(body, worldPoint, null, null, corr, 0.0D, h, false);
-
-        // Static friction: undo tangential drift of this material point since the substep
-        // began. This is what actually stops a settled body from sliding downhill.
-        body.toWorld(localPoint, worldPoint);
-        Vector3d slide = new Vector3d(worldPoint).sub(prevWorldPoint);
-        slide.fma(-slide.dot(normal), normal);
-
-        double slideLength = slide.length();
-        if (slideLength < 1.0e-9D) {
+        // derives speed from the distance moved, so ejecting a limb 0.4 blocks within a
+        // 3 ms substep hands it 128 blocks/s and fires it across the map. That happens for
+        // real whenever a body is driven into terrain or spawned inside a block.
+        double corrected = Math.min(depth, this.budget);
+        if (corrected <= 0.0D) {
             return;
         }
+        this.budget -= corrected;
 
-        double limit = staticFriction * corrected;
-        if (slideLength > limit) {
-            slide.mul(limit / slideLength);
+        Vector3d push = new Vector3d(this.normal).mul(corrected);
+        XpbdMath.applyPairCorrection(this.body, this.worldPoint, null, null,
+                push, 0.0D, h, false);
+
+        applyStaticFriction(h, corrected);
+    }
+
+    /**
+     * Static friction: undo the tangential drift of this material point since the substep
+     * began, up to the Coulomb limit. This is what stops a settled body sliding downhill.
+     */
+    private void applyStaticFriction(double h, double corrected) {
+        this.body.toWorld(this.localPoint, this.worldPoint);
+        Vector3d slide = new Vector3d(this.worldPoint).sub(this.prevWorldPoint);
+        slide.fma(-slide.dot(this.normal), this.normal);
+
+        double length = slide.length();
+        if (length < 1.0e-9D) {
+            return;
         }
-        XpbdMath.applyPairCorrection(body, worldPoint, null, null, slide.negate(), 0.0D, h, false);
+        double limit = this.staticFriction * corrected;
+        if (length > limit) {
+            slide.mul(limit / length);
+        }
+        XpbdMath.applyPairCorrection(this.body, this.worldPoint, null, null,
+                slide.negate(), 0.0D, h, false);
     }
 
     /** True when this contact is carrying weight from below, rather than a wall or ceiling. */
     boolean isSupporting() {
-        return active && normal.y > 0.5D;
+        return this.active && this.normal.y > 0.5D;
     }
 
     void solveVelocity(double h) {
-        if (!active) {
+        if (!this.active) {
             return;
         }
 
-        body.toWorld(localPoint, worldPoint);
-        Vector3d v = body.pointVelocity(worldPoint, new Vector3d());
-
-        double vn = v.dot(normal);
-        Vector3d vt = new Vector3d(v).fma(-vn, normal);
-        double vtLength = vt.length();
+        this.body.toWorld(this.localPoint, this.worldPoint);
+        Vector3d v = this.body.pointVelocity(this.worldPoint, this.velocity);
+        double vn = v.dot(this.normal);
 
         Vector3d dv = new Vector3d();
 
-        // Dynamic friction, bounded by the Coulomb cone against the normal impulse.
-        if (vtLength > 1.0e-9D) {
-            double maxFriction = dynamicFriction * normalLambda / h;
-            dv.set(vt).mul(-Math.min(maxFriction, vtLength) / vtLength);
+        // Dynamic friction, bounded by the Coulomb cone against this substep's normal impulse.
+        //
+        // The normal impulse is the velocity we are about to cancel along the normal, not
+        // the accumulated position-level lambda: that lambda shrinks as the position solver
+        // spreads its budget over several iterations, and tying friction to it let free-mode
+        // corpses slide across the floor for tens of blocks.
+        Vector3d tangent = new Vector3d(v).fma(-vn, this.normal);
+        double speed = tangent.length();
+        if (speed > 1.0e-9D) {
+            double limit = this.dynamicFriction * Math.abs(vn);
+            dv.set(tangent).mul(-Math.min(limit, speed) / speed);
         }
 
-        // Restitution. Suppressed for slow impacts, or resting bodies jitter forever.
-        double e = Math.abs(normalVelocityBefore) < 2.0D ? 0.0D : restitution;
-        dv.fma(-vn + Math.max(-e * normalVelocityBefore, 0.0D), normal);
+        // Restitution, suppressed for slow impacts or resting bodies jitter forever.
+        double bounce = Math.abs(this.normalVelocityBefore) < RESTITUTION_THRESHOLD
+                ? 0.0D
+                : this.restitution;
+        dv.fma(-vn + Math.max(-bounce * this.normalVelocityBefore, 0.0D), this.normal);
 
-        XpbdMath.applyPairCorrection(body, worldPoint, null, null, dv, 0.0D, h, true);
+        XpbdMath.applyPairCorrection(this.body, this.worldPoint, null, null, dv, 0.0D, h, true);
     }
 }

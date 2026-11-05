@@ -12,8 +12,7 @@ import net.minecraftforge.registries.RegistryObject;
 
 public final class CorpseLabRegistry {
 
-    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
-            DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, CorpseLab.MOD_ID);
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, CorpseLab.MOD_ID);
 
     public static final RegistryObject<EntityType<RagdollEntity>> RAGDOLL =
             ENTITY_TYPES.register("ragdoll", () -> EntityType.Builder

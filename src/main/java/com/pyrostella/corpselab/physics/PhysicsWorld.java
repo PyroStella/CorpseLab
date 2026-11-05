@@ -10,7 +10,7 @@ import java.util.List;
  *
  * <p>Contacts are generated once per step against a small margin, then re-evaluated each
  * substep. That is the standard trade: broadphase is the expensive part, and the margin
- * covers the distance a body can move within one step.
+ * covers the distance a body can move within one step.</p>
  */
 public final class PhysicsWorld {
 
@@ -19,6 +19,12 @@ public final class PhysicsWorld {
 
     /** Contacts are kept alive while a sample point is within this distance of a solid. */
     private static final double CONTACT_MARGIN = 0.04D;
+
+    /** 支撑中的刚体每 tick 保留的速度比例，见 {@link #step} 末尾 */
+    private static final double REST_DAMPING = 0.85D;
+
+    /** Hard cap on speed, so nothing can outrun the contact margin within one step. */
+    public double maxSpeed = 128.0D;
 
     public final List<RigidBody> bodies = new ArrayList<>();
     public final List<Constraint> constraints = new ArrayList<>();
@@ -30,13 +36,19 @@ public final class PhysicsWorld {
     public WorldCollider collider = WorldCollider.EMPTY;
 
     /**
-     * More substeps buy stability far more cheaply than more solver iterations do - that
-     * is the central result of the small-substep XPBD paper.
+     * More substeps buy stability far more cheaply than more solver iterations do - that is
+     * the central result of the small-substep XPBD paper.
      */
     public int substeps = 16;
 
-    /** Hard cap on speed, so nothing can outrun the contact margin in a single step. */
-    public double maxSpeed = 128.0D;
+    /**
+     * 每个子步把位置约束投影几遍。
+     *
+     * <p>只投一遍时，互相矛盾的硬约束（髋部锚点必须重合 vs 脚不能进地面）只能满足后者，
+     * 前者留下残余位移，再被 {@link RigidBody#deriveVelocity} 折算成速度：姿态永远在抖、
+     * 永远不静止。多投几遍，它们才会协商出一个折中。</p>
+     */
+    public int iterations = 1;
 
     private boolean grounded;
 
@@ -44,34 +56,54 @@ public final class PhysicsWorld {
         clampSpeeds();
         generateContacts(dt);
 
-        double h = dt / substeps;
-        for (int s = 0; s < substeps; s++) {
-            for (RigidBody body : bodies) {
-                body.integrate(h, gravity);
+        double h = dt / this.substeps;
+        for (int s = 0; s < this.substeps; s++) {
+            for (RigidBody body : this.bodies) {
+                body.integrate(h, this.gravity);
             }
-            for (Contact contact : contacts) {
-                contact.beginSubstep();
+            for (Contact contact : this.contacts) {
+                contact.beginSubstep(h, this.iterations);
             }
-            for (Constraint constraint : constraints) {
-                constraint.solvePosition(h);
+
+            for (int iteration = 0; iteration < this.iterations; iteration++) {
+                for (Constraint constraint : this.constraints) {
+                    // 排斥类约束只在第一遍里投一次，见 Constraint#iterated
+                    if (iteration > 0 && !constraint.iterated()) {
+                        continue;
+                    }
+                    constraint.solvePosition(h);
+                }
+                for (Contact contact : this.contacts) {
+                    contact.solvePosition(h);
+                }
             }
-            for (Contact contact : contacts) {
-                contact.solvePosition(h);
-            }
-            for (RigidBody body : bodies) {
+
+            for (RigidBody body : this.bodies) {
                 body.deriveVelocity(h);
             }
-            for (Contact contact : contacts) {
+            for (Contact contact : this.contacts) {
                 contact.solveVelocity(h);
             }
         }
 
-        grounded = false;
-        for (Contact contact : contacts) {
-            if (contact.isSupporting()) {
-                grounded = true;
-                break;
+        settle();
+    }
+
+    /**
+     * 一 tick 结束时收尾：记录是否有东西踩在地上，并把支撑中的刚体速度压一点。
+     *
+     * <p>静摩擦在位置层面被多遍迭代摊薄之后，落地尸体仍会以几厘米每秒的速度慢慢滑走，
+     * 肉眼非常明显，所以要在这里再收一次。</p>
+     */
+    private void settle() {
+        this.grounded = false;
+        for (Contact contact : this.contacts) {
+            if (!contact.isSupporting()) {
+                continue;
             }
+            this.grounded = true;
+            contact.body.linVel.mul(REST_DAMPING);
+            contact.body.angVel.mul(REST_DAMPING);
         }
     }
 
@@ -79,60 +111,58 @@ public final class PhysicsWorld {
      * Whether anything in the assembly is resting on a surface, as of the last step.
      *
      * <p>Measured from the contacts themselves rather than from height or speed, so a body
-     * wedged against a wall or falling past a ledge is not mistaken for one that has
-     * landed.
+     * wedged against a wall or falling past a ledge is not mistaken for one that landed.</p>
      */
     public boolean isGrounded() {
-        return grounded;
-    }
-
-    private void clampSpeeds() {
-        for (RigidBody body : bodies) {
-            double speed = body.linVel.length();
-            if (speed > maxSpeed) {
-                body.linVel.mul(maxSpeed / speed);
-            }
-        }
+        return this.grounded;
     }
 
     /** Highest linear speed in the assembly, used to decide when a ragdoll has settled. */
     public double maxBodySpeed() {
         double max = 0.0D;
-        for (RigidBody body : bodies) {
+        for (RigidBody body : this.bodies) {
             max = Math.max(max, body.linVel.length());
         }
         return max;
+    }
+
+    private void clampSpeeds() {
+        for (RigidBody body : this.bodies) {
+            double speed = body.linVel.length();
+            if (speed > this.maxSpeed) {
+                body.linVel.mul(this.maxSpeed / speed);
+            }
+        }
     }
 
     /**
      * Builds the step's contact set.
      *
      * <p>Contacts are <em>speculative</em>: one is created for every sample point close
-     * enough to reach a solid within this step, including points still in mid-air. It
-     * stays inert until the per-substep depth test says the point is actually inside.
+     * enough to reach a solid within this step, including points still in mid-air. It stays
+     * inert until the per-substep depth test says the point is actually inside.</p>
      *
-     * <p>That is what stops a body launched at 128 blocks/s - 6.4 blocks in a single
-     * tick - from passing straight through a one-block floor. The reach is the body's
-     * own travel distance for the step, so the faster it moves, the further ahead it
-     * looks.
+     * <p>That is what stops a body launched at 128 blocks/s - 6.4 blocks in a single tick -
+     * from passing straight through a one-block floor: the reach is the body's own travel
+     * distance for the step, so the faster it moves, the further ahead it looks.</p>
      */
     private void generateContacts(double dt) {
-        contacts.clear();
+        this.contacts.clear();
 
         Vector3d local = new Vector3d();
         Vector3d world = new Vector3d();
         Vector3d normal = new Vector3d();
 
-        for (RigidBody body : bodies) {
+        for (RigidBody body : this.bodies) {
             if (body.isStatic()) {
                 continue;
             }
 
             double reach = CONTACT_MARGIN + body.linVel.length() * dt;
 
-            solidScratch.clear();
-            collider.collectSolids(sweptBounds(body, dt).inflate(CONTACT_MARGIN), solidScratch);
-            if (solidScratch.isEmpty()) {
+            this.solidScratch.clear();
+            this.collider.collectSolids(sweptBounds(body, dt).inflate(CONTACT_MARGIN), this.solidScratch);
+            if (this.solidScratch.isEmpty()) {
                 continue;
             }
 
@@ -140,12 +170,12 @@ public final class PhysicsWorld {
                 samplePoint(body, i, local);
                 body.toWorld(local, world);
 
-                for (Aabb box : solidScratch) {
+                for (Aabb box : this.solidScratch) {
                     if (distanceTo(box, world) > reach) {
                         continue;
                     }
-                    pickNormal(box, world, normal, solidScratch);
-                    contacts.add(new Contact(body, local, box, normal));
+                    pickNormal(box, world, normal, this.solidScratch);
+                    this.contacts.add(new Contact(body, local, box, normal));
                 }
             }
         }
@@ -159,21 +189,19 @@ public final class PhysicsWorld {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    /**
-     * Chooses the escape direction, once per contact, and then holds it for the whole
-     * step. Re-picking every substep makes a body resting on an edge flip between two
-     * normals and buzz.
-     *
-     * <p>Outside the box, the normal is the dominant axis of separation - for a body
-     * falling towards a floor that is the top face, which is the one it will land on.
-     * Inside, it is the least-penetrating face.
-     */
     private static final Vector3d[] FACES = {
             new Vector3d(-1.0D, 0.0D, 0.0D), new Vector3d(1.0D, 0.0D, 0.0D),
             new Vector3d(0.0D, -1.0D, 0.0D), new Vector3d(0.0D, 1.0D, 0.0D),
             new Vector3d(0.0D, 0.0D, -1.0D), new Vector3d(0.0D, 0.0D, 1.0D),
     };
 
+    /**
+     * Chooses the escape direction, once per contact, and then holds it for the whole step.
+     *
+     * <p>Outside the box the normal is the dominant axis of separation - for a body falling
+     * towards a floor that is the top face, the one it will land on. Inside, it is the
+     * shallowest face that is actually exposed.</p>
+     */
     private static void pickNormal(Aabb box, Vector3d p, Vector3d out, List<Aabb> neighbours) {
         double dx = p.x - XpbdMath.clamp(p.x, box.minX(), box.maxX());
         double dy = p.y - XpbdMath.clamp(p.y, box.minY(), box.maxY());
@@ -195,11 +223,11 @@ public final class PhysicsWorld {
 
         // Inside the box: escape through the shallowest face that is actually exposed.
         //
-        // Skipping buried faces is essential in a voxel world. A point resting a hair
-        // below a floor surface sits far closer to the block's vertical side face than to
-        // its top, so the naive least-penetration answer is sideways - and two adjacent
-        // floor blocks then shove the body in opposite directions, which reads in game as
-        // a settled ragdoll skating slowly across the ground forever.
+        // Skipping buried faces is essential in a voxel world. A point resting a hair below
+        // a floor surface sits far closer to the block's vertical side face than to its top,
+        // so the naive least-penetration answer is sideways - and two adjacent floor blocks
+        // then shove the body in opposite directions, which reads in game as a settled
+        // ragdoll skating slowly across the ground forever.
         double bestDepth = Double.MAX_VALUE;
         out.set(0.0D, 1.0D, 0.0D);
 

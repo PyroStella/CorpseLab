@@ -12,13 +12,11 @@ public final class PlanConfig {
     /** 布娃娃形态 */
     public enum PlanMode {
         /**
-         * 铰接：只有根节点自由移动，其余部件的位置由父节点锚点决定，只能绕关节转动。
-         * 表现是"一具有关节的尸体"，永远不会散开。
+         * 铰接：部件之间建软关节，平时连成一体，被重击拽开太远会断开。
          */
         ARTICULATED,
         /**
-         * 自由：每个部件都是独立刚体，靠关节软约束拉在一起。
-         * 冲击够大时关节会被拉开，看起来更"碎"。
+         * 自由：一个关节都不建，每个部件都是独立刚体，只靠互相碰撞和地面堆成一摊。
          */
         FREE
     }
@@ -28,6 +26,9 @@ public final class PlanConfig {
     private static final ForgeConfigSpec.DoubleValue ACTIVE_RADIUS;
     private static final ForgeConfigSpec.IntValue MAX_PER_AREA;
     private static final ForgeConfigSpec.BooleanValue SELF_COLLISION;
+    private static final ForgeConfigSpec.IntValue SOLVER_ITERATIONS;
+    private static final ForgeConfigSpec.DoubleValue JOINT_COMPLIANCE;
+    private static final ForgeConfigSpec.DoubleValue JOINT_BREAK;
 
     public static final ForgeConfigSpec SPEC;
 
@@ -37,8 +38,8 @@ public final class PlanConfig {
         builder.push("plan_corpse");
         MODE = builder
                 .comment("布娃娃形态。",
-                        "ARTICULATED = 不散架：只有根节点自由移动，其余部件只能绕关节转动。",
-                        "FREE = 自由：每个部件独立受力，靠关节软约束拉在一起，冲击大时会被拽开。")
+                        "ARTICULATED = 有骨架：部件之间是软关节，平时连成一体，被重击拽开太远会断开。",
+                        "FREE = 无骨架：一个关节都不建，部件完全独立，只靠互相碰撞和地面堆成一摊。")
                 .defineEnum("mode", PlanMode.ARTICULATED);
 
         MAX_AGE_TICKS = builder
@@ -57,6 +58,23 @@ public final class PlanConfig {
                 .comment("部件之间是否互相碰撞（手臂不能插进胸腔、腿不能穿过另一条腿）。",
                         "关掉可以省一点 CPU，代价是肢体可能互相穿插。")
                 .define("selfCollision", true);
+
+        SOLVER_ITERATIONS = builder
+                .comment("每个物理子步里把所有约束反复求解多少遍。",
+                        "1 = 只投一遍：互相矛盾的部分留成残余位移，再被速度推导折算成抖动。",
+                        "调大能压掉抽搐，代价是 CPU。默认 6。")
+                .defineInRange("solverIterations", 6, 1, 16);
+
+        JOINT_COMPLIANCE = builder
+                .comment("ARTICULATED 模式关节的柔软度。0 = 部件被焊死；调大，关节会被自重和冲击拉开。",
+                        "实测关节缝隙：0 -> 1mm，0.002 -> 10mm，0.01 -> 17mm（静置）。默认 0.002。")
+                .defineInRange("jointCompliance", 0.002D, 0.0D, 0.01D);
+
+        JOINT_BREAK = builder
+                .comment("ARTICULATED 模式关节被拉开多少格就彻底断开，那截肢体真的掉下来。0 = 永不断开。",
+                        "实测静置空隙约 10mm、正常坠落约 17mm、被 12 m/s 撞飞时峰值约 46mm，",
+                        "默认 0.03：普通倒下还连着，挨了重击才掉件。")
+                .defineInRange("jointBreakDistance", 0.03D, 0.0D, 2.0D);
         builder.pop();
 
         SPEC = builder.build();
@@ -83,5 +101,17 @@ public final class PlanConfig {
 
     public static boolean selfCollision() {
         return SELF_COLLISION.get();
+    }
+
+    public static int solverIterations() {
+        return SOLVER_ITERATIONS.get();
+    }
+
+    public static double jointCompliance() {
+        return JOINT_COMPLIANCE.get();
+    }
+
+    public static double jointBreakDistance() {
+        return JOINT_BREAK.get();
     }
 }
