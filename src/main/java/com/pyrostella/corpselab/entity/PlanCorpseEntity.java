@@ -41,7 +41,7 @@ import net.minecraftforge.network.PacketDistributor;
  * <p>服务端持有 {@link PlanRagdoll} 跑物理，每个 tick 把各刚体的位姿发给跟踪者
  * 客户端只负责把这些位姿画出来（当前是线框，后续换成模型部件）。</p>
  */
-public class PlanCorpseEntity extends Entity {
+public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     private static final BodyPlan EMPTY = new BodyPlan(List.of(), List.of());
 
@@ -60,6 +60,9 @@ public class PlanCorpseEntity extends Entity {
 
     /** 已存在的 tick 数，用于过期清理 */
     private int age;
+
+    /** 仅服务端持有的抓取状态 */
+    private final CorpseGrabState grab = new CorpseGrabState();
 
     public PlanCorpseEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -131,8 +134,10 @@ public class PlanCorpseEntity extends Entity {
             return;
         }
 
+        this.grab.apply(this.level(), this.ragdoll.bodies());
+
         // 远处冻结：不跑物理也不发姿态，玩家走近会接着模拟，省 CPU
-        if (!this.hasNearbyPlayer()) {
+        if (!this.grab.isGrabbed() && !this.hasNearbyPlayer()) {
             return;
         }
 
@@ -182,6 +187,21 @@ public class PlanCorpseEntity extends Entity {
         return this.sourceType;
     }
 
+    @Override
+    public boolean tryGrab(net.minecraft.world.entity.player.Player grabber) {
+        return this.ragdoll != null && this.grab.tryGrab(grabber, this.ragdoll.bodies());
+    }
+
+    @Override
+    public void releaseGrab() {
+        this.grab.release();
+    }
+
+    @Override
+    public boolean isGrabbedBy(net.minecraft.world.entity.player.Player player) {
+        return this.grab.isGrabbedBy(player);
+    }
+
     public void setSourceType(ResourceLocation sourceType) {
         this.sourceType = sourceType;
     }
@@ -227,6 +247,32 @@ public class PlanCorpseEntity extends Entity {
         this.setPos(centre.x, centre.y, centre.z);
     }
 
+    /** 服务端查询抓取目标时必须覆盖所有刚体，不能只覆盖质心附近 */
+    @Override
+    protected AABB makeBoundingBox() {
+        if (this.ragdoll == null || this.ragdoll.bodies().isEmpty()) {
+            return super.makeBoundingBox();
+        }
+
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        double maxZ = Double.NEGATIVE_INFINITY;
+        for (RigidBody body : this.ragdoll.bodies()) {
+            // 旋转盒的轴对齐边界不会超过其外接球
+            double radius = body.halfExtents.length();
+            minX = Math.min(minX, body.pos.x - radius);
+            minY = Math.min(minY, body.pos.y - radius);
+            minZ = Math.min(minZ, body.pos.z - radius);
+            maxX = Math.max(maxX, body.pos.x + radius);
+            maxY = Math.max(maxY, body.pos.y + radius);
+            maxZ = Math.max(maxZ, body.pos.z + radius);
+        }
+        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+    }
+
     // ---------- 存档 ----------
 
     @Override
@@ -248,6 +294,7 @@ public class PlanCorpseEntity extends Entity {
                             Math.toRadians(this.getYRot()), null);
                     this.ragdoll.moveCentreTo(this.getX(), this.getY(), this.getZ());
                     this.ragdoll.setCollider(new LevelCollider(this.level()));
+                    this.syncAnchorToRagdoll();
                 }
             } catch (Exception e) {
                 CorpseLab.LOGGER.error("尸体骨架存档损坏", e);

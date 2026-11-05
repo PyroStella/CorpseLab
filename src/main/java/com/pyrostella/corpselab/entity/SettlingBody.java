@@ -99,6 +99,11 @@ public abstract class SettlingBody extends RagdollEntity {
         settledTicks = 0;
     }
 
+    @Override
+    public void wakeForGrab() {
+        wake();
+    }
+
     /** 抛出身体并唤醒它，这样爆炸能像推动活人一样推动它 */
     public void launchAndWake(Vec3 velocity) {
         wake();

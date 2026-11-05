@@ -4,7 +4,6 @@ import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import com.pyrostella.corpselab.net.PlanSyncPacket;
-
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;

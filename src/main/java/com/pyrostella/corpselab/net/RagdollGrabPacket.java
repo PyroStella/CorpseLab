@@ -1,9 +1,10 @@
 package com.pyrostella.corpselab.net;
 
 import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.entity.SettlingBody;
+import com.pyrostella.corpselab.entity.GrabbableCorpse;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -36,14 +37,16 @@ public final class RagdollGrabPacket {
         NetworkEvent.Context ctx = context.get();
         ctx.enqueueWork(() -> {
             ServerPlayer player = ctx.getSender();
-            if (player == null || !CorpseLabConfig.SERVER.grabEnabled.get()) {
+            if (player == null) {
                 return;
             }
 
             double reach = CorpseLabConfig.SERVER.grabReach.get();
             AABB search = player.getBoundingBox().inflate(reach + 2.0D);
 
-            for (SettlingBody body : player.level().getEntitiesOfClass(SettlingBody.class, search)) {
+            for (Entity entity : player.level().getEntities(player, search,
+                    candidate -> candidate instanceof GrabbableCorpse)) {
+                GrabbableCorpse body = (GrabbableCorpse) entity;
                 if (!grabbing) {
                     // 放开这名玩家原先抓着的东西，不管它在哪里
                     if (body.isGrabbedBy(player)) {
@@ -52,9 +55,13 @@ public final class RagdollGrabPacket {
                     continue;
                 }
 
+                if (!CorpseLabConfig.SERVER.grabEnabled.get()) {
+                    return;
+                }
+
                 if (body.tryGrab(player)) {
                     // 已经静止的身体必须重新开始模拟，才拖得动
-                    body.wake();
+                    body.wakeForGrab();
                     return;
                 }
             }

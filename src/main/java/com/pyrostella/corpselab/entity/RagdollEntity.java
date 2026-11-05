@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** 六部件人形尸体共用的物理、姿态同步与拖拽基础 */
-public abstract class RagdollEntity extends Entity {
+public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
 
     public static final int PART_COUNT = BodyPart.values().length;
 
@@ -40,12 +40,8 @@ public abstract class RagdollEntity extends Entity {
     /** 客户端渲染状态：世界空间中的快照，延迟一段时间后回放 */
     private final PoseBuffer poseBuffer = new PoseBuffer(PART_COUNT);
 
-    /** 肢体偏离视线多远仍可被抓住，单位为方块 */
-    private static final double GRAB_PICK_RADIUS = 0.6D;
-
-    /** 谁在抓着这具身体、抓的是哪个肢体、从何时开始。仅服务端 */
-    private UUID grabberId;
-    private int grabbedPart = -1;
+    /** 仅服务端持有的抓取状态 */
+    private final CorpseGrabState grab = new CorpseGrabState();
 
     public RagdollEntity(EntityType<? extends RagdollEntity> type, Level level) {
         super(type, level);
@@ -138,56 +134,20 @@ public abstract class RagdollEntity extends Entity {
      * @return 若某个肢体在可及范围内则返回 true
      */
     public boolean tryGrab(Player grabber) {
-        if (skeleton == null || !CorpseLabConfig.SERVER.grabEnabled.get()) {
-            return false;
-        }
-
-        Vec3 eye = grabber.getEyePosition();
-        Vec3 look = grabber.getLookAngle();
-        double reach = CorpseLabConfig.SERVER.grabReach.get();
-
-        int best = -1;
-        double bestDistance = Double.MAX_VALUE;
-
-        for (BodyPart part : BodyPart.values()) {
-            Vector3d pos = skeleton.part(part).pos;
-            Vec3 toPart = new Vec3(pos.x, pos.y, pos.z).subtract(eye);
-
-            double along = toPart.dot(look);
-            if (along < 0.0D || along > reach) {
-                continue;
-            }
-
-            // 肢体偏离视线多远，以及它沿视线方向有多近
-            double offAxis = toPart.subtract(look.scale(along)).length();
-            if (offAxis > GRAB_PICK_RADIUS || along >= bestDistance) {
-                continue;
-            }
-            bestDistance = along;
-            best = part.ordinal();
-        }
-
-        if (best < 0) {
-            return false;
-        }
-
-        grabberId = grabber.getUUID();
-        grabbedPart = best;
-        return true;
+        return this.skeleton != null && this.grab.tryGrab(grabber, this.skeleton.bodies());
     }
 
     public void releaseGrab() {
-        grabberId = null;
-        grabbedPart = -1;
+        this.grab.release();
     }
 
     /** 有人正抓着这具身体时为 true */
     public boolean isGrabbed() {
-        return grabbedPart >= 0 && grabberId != null;
+        return this.grab.isGrabbed();
     }
 
     public boolean isGrabbedBy(Player player) {
-        return grabberId != null && grabberId.equals(player.getUUID());
+        return this.grab.isGrabbedBy(player);
     }
 
     /**
@@ -198,29 +158,9 @@ public abstract class RagdollEntity extends Entity {
      * 过去，于是落在手的后面，抓握随即断开
      */
     protected void applyGrab() {
-        if (grabbedPart < 0 || grabberId == null) {
-            return;
+        if (this.skeleton != null) {
+            this.grab.apply(level(), this.skeleton.bodies());
         }
-
-        Player grabber = level().getPlayerByUUID(grabberId);
-        if (grabber == null || !grabber.isAlive() || grabber.isSpectator()) {
-            releaseGrab();
-            return;
-        }
-
-        Vec3 hand = grabber.getEyePosition()
-                .add(grabber.getLookAngle().scale(CorpseLabConfig.SERVER.grabHoldDistance.get()));
-
-        RigidBody body = skeleton.part(BodyPart.values()[grabbedPart]);
-        Vec3 delta = hand.subtract(body.pos.x, body.pos.y, body.pos.z);
-
-        if (delta.length() > CorpseLabConfig.SERVER.grabBreakDistance.get()) {
-            releaseGrab();
-            return;
-        }
-
-        double strength = CorpseLabConfig.SERVER.grabStrength.get();
-        body.linVel.set(delta.x * strength, delta.y * strength, delta.z * strength);
     }
 
     /** 把整套装配体抛出去，并做限幅，确保没有部件飞出世界 */

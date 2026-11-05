@@ -4,7 +4,6 @@ import org.joml.Quaternionf;
 
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import com.pyrostella.corpselab.plan.BodyPlan;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;

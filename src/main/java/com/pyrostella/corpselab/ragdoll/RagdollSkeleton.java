@@ -28,6 +28,7 @@ public final class RagdollSkeleton {
     private static final Quaterniond BONE_DOWN = new Quaterniond().rotateZ(Math.toRadians(-90.0D));
 
     private final Map<BodyPart, RigidBody> parts = new EnumMap<>(BodyPart.class);
+    private final List<RigidBody> orderedBodies;
     private final PhysicsWorld world = new PhysicsWorld();
 
     private SelfCollision selfCollisionConstraint;
@@ -89,6 +90,13 @@ public final class RagdollSkeleton {
             parts.put(part, body);
             world.bodies.add(body);
         }
+        this.orderedBodies = List.of(
+                parts.get(BodyPart.HEAD),
+                parts.get(BodyPart.TORSO),
+                parts.get(BodyPart.ARM_LEFT),
+                parts.get(BodyPart.ARM_RIGHT),
+                parts.get(BodyPart.LEG_LEFT),
+                parts.get(BodyPart.LEG_RIGHT));
 
         buildJoints();
 
@@ -205,6 +213,11 @@ public final class RagdollSkeleton {
 
     public RigidBody part(BodyPart part) {
         return parts.get(part);
+    }
+
+    /** 按 BodyPart 枚举顺序返回全部刚体 */
+    public List<RigidBody> bodies() {
+        return this.orderedBodies;
     }
 
     public RigidBody torso() {
