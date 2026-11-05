@@ -11,6 +11,7 @@ import com.pyrostella.corpselab.physics.PhysicsWorld;
 import com.pyrostella.corpselab.physics.RigidBody;
 import com.pyrostella.corpselab.physics.SelfCollision;
 import com.pyrostella.corpselab.physics.SphericalJoint;
+import com.pyrostella.corpselab.ragdoll.RagdollSkeleton;
 
 import net.minecraft.world.phys.Vec3;
 
@@ -57,7 +58,7 @@ public final class PlanRagdoll {
      * @param x       生成点（脚底）
      * @param y       生成点
      * @param z       生成点
-     * @param yaw     朝向（弧度）
+     * @param yaw     实体朝向（弧度）；内部会补上原版模型那半圈，见 {@link RagdollSkeleton#facingFromYaw}
      * @param impulse 初速度，通常取死亡的动量
      * @param pose    每个盒子的姿势，来自 {@link PlanPose#frames}；null 表示站着不动的零姿态
      */
@@ -67,7 +68,9 @@ public final class PlanRagdoll {
         this.bodies = new RigidBody[plan.boxCount()];
         this.articulated = PlanConfig.mode() == PlanConfig.PlanMode.ARTICULATED;
 
-        Quaterniond orientation = new Quaterniond().rotateY(yaw);
+        // 原版把模型画成 rotateY(180 - yaw) 再 scale(-1,-1,1)。少了前半圈的话，
+        // 尸体在 yaw=0 时是背对着的，而 yaw 与朝向的关系变成镜像：生物往右转头，尸体往左转
+        Quaterniond orientation = new Quaterniond().rotateY(RagdollSkeleton.facingFromYaw(Math.toDegrees(yaw)));
         Vector3d[] centres = new Vector3d[plan.boxCount()];
 
         for (BodyPlan.Box box : plan.boxes()) {
