@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
+import org.joml.Vector3d;
 
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.CorpseLabRegistry;
@@ -103,6 +104,7 @@ public class PlanCorpseEntity extends Entity {
         corpse.ragdoll = new PlanRagdoll(plan, pos.x, pos.y, pos.z,
                 Math.toRadians(yaw), impulse, pose);
         corpse.ragdoll.setCollider(new LevelCollider(level));
+        corpse.syncAnchorToRagdoll();
 
         level.addFreshEntity(corpse);
         return corpse;
@@ -135,6 +137,7 @@ public class PlanCorpseEntity extends Entity {
         }
 
         this.ragdoll.step(0.05D);
+        this.syncAnchorToRagdoll();
 
         // 已经躺稳的尸体没必要每 tick 全量发姿态，降频到 1 秒一次
         boolean settled = this.ragdoll.isSettled();
@@ -185,7 +188,8 @@ public class PlanCorpseEntity extends Entity {
 
     public void setPlan(BodyPlan plan) {
         this.plan = plan;
-        if (this.level().isClientSide) {
+        if (this.level().isClientSide
+                && (this.poses == null || plan.boxCount() != this.poses.partCount())) {
             this.poses = new PoseBuffer(plan.boxCount());
         }
     }
@@ -196,12 +200,31 @@ public class PlanCorpseEntity extends Entity {
         return this.poses;
     }
 
-    /** 收到一帧姿态 */
-    public void acceptPose(Vec3[] positions, Quaternionf[] rotations) {
-        if (this.poses == null) {
+    /** 收到一帧姿态，同时把客户端实体锚点对齐到服务端质心 */
+    public void acceptPose(double anchorX, double anchorY, double anchorZ,
+                           Vec3[] offsets, Quaternionf[] rotations) {
+        this.setPos(anchorX, anchorY, anchorZ);
+        this.xOld = anchorX;
+        this.yOld = anchorY;
+        this.zOld = anchorZ;
+
+        Vec3[] positions = new Vec3[offsets.length];
+        for (int i = 0; i < offsets.length; i++) {
+            positions[i] = offsets[i].add(anchorX, anchorY, anchorZ);
+        }
+        if (this.poses == null || this.poses.partCount() != positions.length) {
             this.poses = new PoseBuffer(positions.length);
         }
         this.poses.push(positions, rotations);
+    }
+
+    /** 让用于追踪、碰撞箱和服务端查询的实体位置跟随物理尸体 */
+    private void syncAnchorToRagdoll() {
+        if (this.ragdoll == null || this.ragdoll.bodies().isEmpty()) {
+            return;
+        }
+        Vector3d centre = this.ragdoll.centreOfMass(new Vector3d());
+        this.setPos(centre.x, centre.y, centre.z);
     }
 
     // ---------- 存档 ----------
@@ -223,6 +246,7 @@ public class PlanCorpseEntity extends Entity {
                 if (!this.level().isClientSide) {
                     this.ragdoll = new PlanRagdoll(this.plan, this.getX(), this.getY(), this.getZ(),
                             Math.toRadians(this.getYRot()), null);
+                    this.ragdoll.moveCentreTo(this.getX(), this.getY(), this.getZ());
                     this.ragdoll.setCollider(new LevelCollider(this.level()));
                 }
             } catch (Exception e) {

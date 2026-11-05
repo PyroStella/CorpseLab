@@ -1,7 +1,6 @@
 package com.pyrostella.corpselab;
 
 import com.pyrostella.corpselab.entity.CorpseEntity;
-import com.pyrostella.corpselab.entity.MobCorpseEntity;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -23,17 +22,6 @@ public final class CorpseLabRegistry {
                     .noSummon()
                     .fireImmune()
                     .build("corpse"));
-
-    /** 死亡生物的尸体。与玩家尸体类似，但身上没有物品，而且有存活计时 */
-    public static final RegistryObject<EntityType<MobCorpseEntity>> MOB_CORPSE =
-            ENTITY_TYPES.register("mob_corpse", () -> EntityType.Builder
-                    .<MobCorpseEntity>of(MobCorpseEntity::new, MobCategory.MISC)
-                    .sized(0.6F, 0.6F)
-                    .clientTrackingRange(16)
-                    .updateInterval(1)
-                    .noSummon()
-                    .fireImmune()
-                    .build("mob_corpse"));
 
     /**
      * 通用骨架驱动的尸体：部件数量与拓扑来自客户端上报的 BodyPlan

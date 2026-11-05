@@ -447,6 +447,35 @@ public final class PlanRagdoll {
         return this.bodies[index];
     }
 
+    /** 按 BodyPlan 里的质量计算整具尸体的世界坐标质心 */
+    public Vector3d centreOfMass(Vector3d dest) {
+        dest.set(0.0D);
+        double totalMass = 0.0D;
+        for (BodyPlan.Box box : this.plan.boxes()) {
+            double mass = box.mass();
+            dest.fma(mass, this.bodies[box.index()].pos);
+            totalMass += mass;
+        }
+        if (totalMass > 0.0D) {
+            return dest.div(totalMass);
+        }
+
+        // 损坏或第三方生成的计划可能把所有质量写成零
+        // 此时退回几何中心，至少不要把锚点送到世界原点
+        for (RigidBody body : this.bodies) {
+            dest.add(body.pos);
+        }
+        return this.bodies.length == 0 ? dest : dest.div(this.bodies.length);
+    }
+
+    /** 平移整套刚体，让质心落到指定的世界坐标 */
+    public void moveCentreTo(double x, double y, double z) {
+        Vector3d offset = centreOfMass(new Vector3d()).negate().add(x, y, z);
+        for (RigidBody body : this.bodies) {
+            body.pos.add(offset);
+        }
+    }
+
     /** 所有还连着的关节里，锚点被拉开最多的那一个的距离 */
     public double maxAnchorGap() {
         double worst = 0.0D;

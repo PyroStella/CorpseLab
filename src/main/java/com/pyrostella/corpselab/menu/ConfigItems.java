@@ -29,7 +29,6 @@ final class ConfigItems {
             Map.entry("expiry", Items.CLOCK),
             Map.entry("triggers", Items.TNT),
             Map.entry("corpse", Items.SKELETON_SKULL),
-            Map.entry("mobCorpse", Items.ZOMBIE_HEAD),
             Map.entry("display", Items.SPYGLASS));
 
     /** 大致是原版提示框尚未开始挤占屏幕的宽度 */

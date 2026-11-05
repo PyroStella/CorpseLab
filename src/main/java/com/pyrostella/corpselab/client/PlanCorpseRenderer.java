@@ -18,6 +18,7 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.joml.Quaternionf;
@@ -63,6 +64,9 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         }
 
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.entityCutoutNoCull(texture));
+        double renderX = Mth.lerp(partialTick, entity.xOld, entity.getX());
+        double renderY = Mth.lerp(partialTick, entity.yOld, entity.getY());
+        double renderZ = Mth.lerp(partialTick, entity.zOld, entity.getZ());
 
         for (BodyPlan.Box box : plan.boxes()) {
             PartRef ref = binding.parts().get(box.index());
@@ -70,9 +74,9 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
             Quaternionf rotation = poses.rotation(box.index(), new Quaternionf());
 
             poseStack.pushPose();
-            poseStack.translate(position.x - entity.getX(),
-                    position.y - entity.getY(),
-                    position.z - entity.getZ());
+            poseStack.translate(position.x - renderX,
+                    position.y - renderY,
+                    position.z - renderZ);
             poseStack.mulPose(rotation);
             // 进入原版模型空间：Y 向下、X 左右相反。两次翻转不改变手性，仍是正常旋转
             poseStack.scale(-1.0F, -1.0F, 1.0F);

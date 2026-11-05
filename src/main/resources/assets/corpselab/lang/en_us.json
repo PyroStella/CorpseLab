@@ -1,7 +1,6 @@
 {
-  "key.categories.tumble": "Tumble",
+  "key.categories.corpselab": "CorpseLab",
   "corpselab.container.corpse": "%s's Body",
-  "entity.tumble.corpse": "Body",
-  "entity.tumble.mob_corpse": "Body",
-  "key.tumble.grab": "Grab Body"
+  "entity.corpselab.corpse": "Body",
+  "key.corpselab.grab": "Grab Body"
 }

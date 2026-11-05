@@ -49,6 +49,10 @@ public final class PoseBuffer {
         return currentPositions != null;
     }
 
+    public int partCount() {
+        return partCount;
+    }
+
     /** 记录一份快照。它要到下一个 tick 边界才会变得可见 */
     public void push(Vec3[] positions, Quaternionf[] rotations) {
         Quaternionf[] copied = new Quaternionf[partCount];

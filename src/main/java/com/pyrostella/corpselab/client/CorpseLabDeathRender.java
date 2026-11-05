@@ -2,11 +2,11 @@ package com.pyrostella.corpselab.client;
 
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLivingEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -22,7 +22,7 @@ public final class CorpseLabDeathRender {
     private CorpseLabDeathRender() {
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderLiving(RenderLivingEvent.Pre<?, ?> event) {
         LivingEntity entity = event.getEntity();
         if (entity instanceof Player || entity.deathTime <= 0) {
@@ -31,16 +31,8 @@ public final class CorpseLabDeathRender {
         if (!CorpseLabConfig.CLIENT.hideVanillaDeathAnimation.get()) {
             return;
         }
-        if (!CorpseLabConfig.SERVER.mobCorpseEnabled.get()) {
-            return;
-        }
-
-        String id = EntityType.getKey(entity.getType()).toString();
-        for (String entry : CorpseLabConfig.SERVER.mobCorpseTypes.get()) {
-            if (entry.equals(id)) {
-                event.setCanceled(true);
-                return;
-            }
+        if (BodyPlanReporter.expectsCorpse(entity.getType())) {
+            event.setCanceled(true);
         }
     }
 }

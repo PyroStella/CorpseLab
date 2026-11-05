@@ -20,38 +20,54 @@ import net.minecraftforge.network.NetworkEvent;
 public final class PlanPosePacket {
 
     private final int entityId;
-    private final Vec3[] positions;
+    private final double anchorX;
+    private final double anchorY;
+    private final double anchorZ;
+    private final Vec3[] offsets;
     private final Quaternionf[] rotations;
 
-    private PlanPosePacket(int entityId, Vec3[] positions, Quaternionf[] rotations) {
+    private PlanPosePacket(int entityId, double anchorX, double anchorY, double anchorZ,
+                           Vec3[] offsets, Quaternionf[] rotations) {
         this.entityId = entityId;
-        this.positions = positions;
+        this.anchorX = anchorX;
+        this.anchorY = anchorY;
+        this.anchorZ = anchorZ;
+        this.offsets = offsets;
         this.rotations = rotations;
     }
 
     public static PlanPosePacket of(PlanCorpseEntity entity) {
         List<RigidBody> bodies = entity.rigidBodies();
-        Vec3[] positions = new Vec3[bodies.size()];
+        Vec3[] offsets = new Vec3[bodies.size()];
         Quaternionf[] rotations = new Quaternionf[bodies.size()];
+        double anchorX = entity.getX();
+        double anchorY = entity.getY();
+        double anchorZ = entity.getZ();
 
         for (int i = 0; i < bodies.size(); i++) {
             RigidBody body = bodies.get(i);
-            positions[i] = new Vec3(body.pos.x, body.pos.y, body.pos.z);
+            offsets[i] = new Vec3(
+                    body.pos.x - anchorX,
+                    body.pos.y - anchorY,
+                    body.pos.z - anchorZ);
             rotations[i] = new Quaternionf(
                     (float) body.rot.x, (float) body.rot.y,
                     (float) body.rot.z, (float) body.rot.w);
         }
 
-        return new PlanPosePacket(entity.getId(), positions, rotations);
+        return new PlanPosePacket(entity.getId(), anchorX, anchorY, anchorZ, offsets, rotations);
     }
 
     public PlanPosePacket(FriendlyByteBuf buf) {
         this.entityId = buf.readVarInt();
+        this.anchorX = buf.readDouble();
+        this.anchorY = buf.readDouble();
+        this.anchorZ = buf.readDouble();
         int count = buf.readVarInt();
-        this.positions = new Vec3[count];
+        this.offsets = new Vec3[count];
         this.rotations = new Quaternionf[count];
         for (int i = 0; i < count; i++) {
-            this.positions[i] = new Vec3(buf.readFloat(), buf.readFloat(), buf.readFloat());
+            this.offsets[i] = new Vec3(buf.readFloat(), buf.readFloat(), buf.readFloat());
             this.rotations[i] = new Quaternionf(
                     buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat());
         }
@@ -59,11 +75,14 @@ public final class PlanPosePacket {
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeVarInt(this.entityId);
-        buf.writeVarInt(this.positions.length);
-        for (int i = 0; i < this.positions.length; i++) {
-            buf.writeFloat((float) this.positions[i].x);
-            buf.writeFloat((float) this.positions[i].y);
-            buf.writeFloat((float) this.positions[i].z);
+        buf.writeDouble(this.anchorX);
+        buf.writeDouble(this.anchorY);
+        buf.writeDouble(this.anchorZ);
+        buf.writeVarInt(this.offsets.length);
+        for (int i = 0; i < this.offsets.length; i++) {
+            buf.writeFloat((float) this.offsets[i].x);
+            buf.writeFloat((float) this.offsets[i].y);
+            buf.writeFloat((float) this.offsets[i].z);
             buf.writeFloat(this.rotations[i].x);
             buf.writeFloat(this.rotations[i].y);
             buf.writeFloat(this.rotations[i].z);
@@ -74,7 +93,8 @@ public final class PlanPosePacket {
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> PlanCorpseClientHandler.acceptPose(
-                        this.entityId, this.positions, this.rotations)));
+                        this.entityId, this.anchorX, this.anchorY, this.anchorZ,
+                        this.offsets, this.rotations)));
         context.get().setPacketHandled(true);
     }
 

@@ -23,10 +23,11 @@ public final class PlanCorpseClientHandler {
         }
     }
 
-    public static void acceptPose(int entityId, Vec3[] positions, Quaternionf[] rotations) {
+    public static void acceptPose(int entityId, double anchorX, double anchorY, double anchorZ,
+                                  Vec3[] offsets, Quaternionf[] rotations) {
         PlanCorpseEntity corpse = find(entityId);
         if (corpse != null) {
-            corpse.acceptPose(positions, rotations);
+            corpse.acceptPose(anchorX, anchorY, anchorZ, offsets, rotations);
         }
     }
 

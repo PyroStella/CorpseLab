@@ -6,7 +6,6 @@ import com.pyrostella.corpselab.entity.CorpseEntity;
 import com.pyrostella.corpselab.entity.SettlingBody;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.phys.Vec3;
@@ -63,43 +62,6 @@ public final class CorpseHandler {
         }
 
         player.level().addFreshEntity(corpse);
-    }
-
-    /**
-     * 人形生物也会留下尸体，用来替代原版的倒地动画
-     *
-     * <p>哪些生物符合条件必须由配置列表决定：布娃娃由 Minecraft 人形模型的
-     * 六个长方体构建，而生物使用哪种模型属于服务端
-     * 看不到的客户端事实
-     */
-    @SubscribeEvent(priority = EventPriority.HIGH)
-    public static void onMobDeath(LivingDeathEvent event) {
-        // 旧系统（Tumble 的 6 部件人形尸体）已由 plan.PlanCorpseHandler 取代
-        // 两边都监听死亡会生成两份尸体，所以这里整段停用，代码保留备查
-        //
-        // if (!CorpseLabConfig.SERVER.mobCorpseEnabled.get()) {
-        //     return;
-        // }
-        // if (event.getEntity() instanceof ServerPlayer || event.getEntity().level().isClientSide) {
-        //     return;
-        // }
-        // if (!isRagdollable(event.getEntity().getType())) {
-        //     return;
-        // }
-        //
-        // Vec3 momentum = event.getEntity().getDeltaMovement().scale(20.0D);
-        // event.getEntity().level().addFreshEntity(
-        //         MobCorpseEntity.of(event.getEntity(), momentum));
-    }
-
-    private static boolean isRagdollable(EntityType<?> type) {
-        String id = EntityType.getKey(type).toString();
-        for (String entry : CorpseLabConfig.SERVER.mobCorpseTypes.get()) {
-            if (entry.equals(id)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

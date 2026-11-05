@@ -31,7 +31,6 @@ public final class CorpseLabClient {
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(CorpseLabRegistry.CORPSE.get(), RagdollEntityRenderer::new);
-            event.registerEntityRenderer(CorpseLabRegistry.MOB_CORPSE.get(), MobCorpseRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.PLAN_CORPSE.get(), PlanCorpseRenderer::new);
         }
     }

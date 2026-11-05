@@ -258,6 +258,13 @@ public abstract class RagdollEntity extends Entity {
     /** 客户端收到一份姿态快照时调用。偏移量相对于锚点 */
     public void applyPose(double anchorX, double anchorY, double anchorZ,
                           Vector3f[] positions, Quaternionf[] rotations) {
+        // 姿态包里的锚点与刚体来自同一个服务端 tick
+        // 直接采用它，避免原版量化位移包晚一拍造成实体与模型分离
+        setPos(anchorX, anchorY, anchorZ);
+        xOld = anchorX;
+        yOld = anchorY;
+        zOld = anchorZ;
+
         Vec3[] world = new Vec3[PART_COUNT];
         for (int i = 0; i < PART_COUNT; i++) {
             world[i] = new Vec3(

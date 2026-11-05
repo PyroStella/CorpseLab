@@ -4,8 +4,6 @@ import com.pyrostella.corpselab.plan.PlanConfig;
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.List;
-
 /**
  * 玩法与物理数值放在 SERVER spec 上，由服务端把它们下发给每个客户端
  * 表现层相关的放在 CLIENT spec 上
@@ -52,10 +50,6 @@ public final class CorpseLabConfig {
         public final ForgeConfigSpec.IntValue corpseFreezeTicks;
         public final ForgeConfigSpec.DoubleValue corpseExplosionLaunchMultiplier;
 
-        public final ForgeConfigSpec.BooleanValue mobCorpseEnabled;
-        public final ForgeConfigSpec.IntValue mobCorpseLifetimeTicks;
-        public final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> mobCorpseTypes;
-
         private Server(ForgeConfigSpec.Builder b) {
             b.comment("尸体物理上限").push("physics");
 
@@ -84,7 +78,7 @@ public final class CorpseLabConfig {
 
             grabStrength = b
                     .comment("抓握的拉力，单位为每秒的速率")
-                    .defineInRange("strength", 8.0D, 0.5D, 60.0D);
+                    .defineInRange("strength", 16.0D, 0.5D, 60.0D);
 
             grabBreakDistance = b
                     .comment("被抓住的肢体可以落后手多远、超过就松手，单位为格")
@@ -98,7 +92,6 @@ public final class CorpseLabConfig {
                     .defineInRange("releaseSpeedThreshold", 0.1D, 0.001D, 10.0D);
 
             b.pop();
-            // 保留旧路径，避免已有服务器的尸体爆炸力度配置失效
             b.comment("爆炸致死时尸体的初速度").push("triggers");
             b.push("explosion");
 
@@ -127,41 +120,6 @@ public final class CorpseLabConfig {
                     .defineInRange("freezeTicks", 40, 1, 20 * 60);
 
             b.pop();
-            b.comment("生物死亡后留下的身体，用来取代原版的倒地死亡动画")
-                    .push("mobCorpse");
-
-            mobCorpseEnabled = b
-                    .comment("列表里的生物死亡时留下一具布娃娃",
-                            "掉落不受影响：生物的战利品照常掉在地上")
-                    .define("enabled", true);
-
-            mobCorpseLifetimeTicks = b
-                    .comment("生物尸体存在多少 tick，0 表示永远存在",
-                            "在生物多的地方不建议这么做")
-                    .defineInRange("lifetimeTicks", 20 * 30, 0, 20 * 60 * 60);
-
-            mobCorpseTypes = b
-                    .comment("哪些生物会留下身体",
-                            "只有用原版人形模型绘制的生物才支持，因为布娃娃",
-                            "是由该模型的六个长方体搭出来的。服务端看不到",
-                            "生物用的是哪个模型，那属于客户端，所以这份列表",
-                            "必须显式写明。加进非人形的生物只会留下一具看不见的身体")
-                    .defineList("types", List.of(
-                            "minecraft:zombie",
-                            "minecraft:husk",
-                            "minecraft:drowned",
-                            "minecraft:zombie_villager",
-                            "minecraft:skeleton",
-                            "minecraft:stray",
-                            "minecraft:wither_skeleton",
-                            "minecraft:piglin",
-                            "minecraft:piglin_brute",
-                            "minecraft:zombified_piglin",
-                            "minecraft:giant"),
-                            entry -> entry instanceof String);
-
-            b.pop();
-
             // 通用骨架尸体系统的设置，与上面的服务器设置同存一份文件
             PlanConfig.define(b);
         }
