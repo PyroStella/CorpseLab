@@ -12,10 +12,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Decides whether a player may go down, and puts them down.
+ * 判断玩家是否可以倒下，并让他倒下
  *
- * <p>Every trigger routes through here, so the cooldown and the eligibility rules are
- * enforced in exactly one place rather than repeated per trigger.
+ * <p>每个触发器都经由这里，因此冷却与资格规则只在
+ * 一处执行，不必在每个触发器里重复
  */
 public final class RagdollController {
 
@@ -28,15 +28,15 @@ public final class RagdollController {
         if (!CorpseLabConfig.SERVER.allowManualTrigger.get()) {
             return false;
         }
-        // Deliberate, so suppression does not apply: a player asking to lie down may.
+        // 这是玩家主动的，所以抑制列表不生效：主动要求躺下的玩家可以做
         return tumble(player, Vec3.ZERO);
     }
 
     /**
-     * Knocks a player down in reaction to something that happened to them.
+     * 作为对玩家身上所发生之事的反应把他掀倒
      *
-     * <p>Unlike the keybind, this respects the suppression list, so riptide launches and
-     * slime bounces do not read as crashes.
+     * <p>与按键不同，这里遵守抑制列表，因此激流冲刺和黏液块弹跳
+     * 不会被当成撞墙
      */
     public static boolean tumbleFromTrigger(ServerPlayer player, Vec3 launch) {
         if (Suppressions.isSuppressed(player)) {
@@ -45,7 +45,7 @@ public final class RagdollController {
         return tumble(player, launch);
     }
 
-    /** Starts a ragdoll if the player is eligible. Returns whether one began. */
+    /** 玩家符合条件时开始一具布娃娃，返回是否真的开始 */
     public static boolean tumble(ServerPlayer player, Vec3 launch) {
         if (!canCorpseLab(player)) {
             return false;
@@ -59,7 +59,7 @@ public final class RagdollController {
         }
 
         if (CorpseLabConfig.SERVER.soundEnabled.get()) {
-            // A vanilla sound, so the mod ships no audio assets and needs no sound registry.
+            // 使用原版音效，这样模组不带任何音频资源，也无需注册音效
             player.level().playSound(null, ragdoll.getX(), ragdoll.getY(), ragdoll.getZ(),
                     SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS,
                     (float) (double) CorpseLabConfig.SERVER.soundVolume.get(), 0.9F);
@@ -77,7 +77,7 @@ public final class RagdollController {
         if (player.isCreative() && !CorpseLabConfig.SERVER.affectCreative.get()) {
             return false;
         }
-        // Already down, or riding something else.
+        // 已经倒着，或者正骑着别的东西
         if (player.getVehicle() != null) {
             return false;
         }

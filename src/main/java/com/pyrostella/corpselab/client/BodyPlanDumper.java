@@ -23,7 +23,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * 调试探针：第一次看到某种生物时，把它的 BodyPlan 拆出来打到日志和聊天栏。
+ * 调试探针：第一次看到某种生物时，把它的 BodyPlan 拆出来打到日志和聊天栏
  *
  * <p>不用指令、不用按键——走过去看一眼就行。每种生物只打一次，避免刷屏。</p>
  *
@@ -68,8 +68,7 @@ public final class BodyPlanDumper {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(Component.literal(
-                    "§b[CorpseLab] " + id.getPath() + " §7[" + model.getClass().getSimpleName() + "] §f"
-                            + plan.boxCount() + " 盒 / " + plan.jointCount() + " 关节"), false);
+                    "§b[CorpseLab] " + id.getPath() + " §7[" + model.getClass().getSimpleName() + "] §f" + plan.boxCount() + " 盒 / " + plan.jointCount() + " 关节"), false);
         }
     }
 }

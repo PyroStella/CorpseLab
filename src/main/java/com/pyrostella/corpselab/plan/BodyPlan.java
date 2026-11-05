@@ -3,7 +3,7 @@ package com.pyrostella.corpselab.plan;
 import java.util.List;
 
 /**
- * 一具尸体的物理骨架描述：若干个盒子 + 若干条关节。
+ * 一具尸体的物理骨架描述：若干个盒子 + 若干条关节
  *
  * <p>这是<b>纯数据</b>，不含任何 Minecraft 类型，也不含物理求解器类型。设计目的有三：</p>
  * <ol>
@@ -12,13 +12,13 @@ import java.util.List;
  *   <li>能序列化后发给服务端（后续做"客户端报价、服务端模拟"）。</li>
  * </ol>
  *
- * <p>单位统一为<b>方块</b>（模型像素 / 16）。坐标是模型空间：原点在实体脚底中心，
+ * <p>单位统一为<b>方块</b>（模型像素 / 16）。坐标是模型空间：原点在实体脚底中心
  * +Y 向上，+Z 朝南。</p>
  */
 public record BodyPlan(List<Box> boxes, List<Joint> joints) {
 
     /**
-     * 一个刚体盒子。
+     * 一个刚体盒子
      *
      * @param index  在列表中的下标，关节用它引用
      * @param path   来源路径（如 {@code head} / {@code body.rightFrontLeg}），仅用于调试
@@ -29,7 +29,7 @@ public record BodyPlan(List<Box> boxes, List<Joint> joints) {
      * @param hy     半高
      * @param hz     半深
      * @param mass   质量，按体积估算
-     * @param px     部件的枢轴 X（方块）。原版部件绕自己的原点旋转，关节也长在这里，
+     * @param px     部件的枢轴 X（方块）。原版部件绕自己的原点旋转，关节也长在这里
      *               所以姿势继承与关节锚点都要用它，不能用盒子中心
      * @param py     枢轴 Y
      * @param pz     枢轴 Z
@@ -41,7 +41,7 @@ public record BodyPlan(List<Box> boxes, List<Joint> joints) {
     }
 
     /**
-     * 一条关节，连接子盒与父盒。锚点由两个盒子的中心决定，不需要额外数据。
+     * 一条关节，连接子盒与父盒。锚点由两个盒子的中心决定，不需要额外数据
      *
      * @param child  子盒下标
      * @param parent 父盒下标

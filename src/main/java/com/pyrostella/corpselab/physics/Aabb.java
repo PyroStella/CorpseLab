@@ -1,6 +1,6 @@
 package com.pyrostella.corpselab.physics;
 
-/** An immutable axis-aligned box in world space, in blocks. */
+/** 世界坐标下不可变的轴对齐包围盒，单位为格 */
 public record Aabb(double minX, double minY, double minZ,
                    double maxX, double maxY, double maxZ) {
 

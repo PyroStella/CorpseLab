@@ -18,20 +18,20 @@ import net.minecraft.world.item.DyeableLeatherItem;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Draws a ragdoll's armour, so a player in full diamond does not go down looking like
- * someone else entirely.
+ * 画出布娃娃的盔甲，让穿一身钻石甲的玩家倒下后
+ * 不至于看起来像换了个人
  *
- * <p>Reuses vanilla's own armour models and textures with the same per-cuboid placement
- * the body model uses. Equipment is read straight off the owning player rather than
- * synced separately: the owner is riding the ragdoll, so they are always in range and
- * their equipment is already replicated.
+ * <p>复用原版自己的盔甲模型和贴图，并沿用身体模型那套
+ * 按长方体逐个摆放的方式。装备直接从主人身上读，而不是
+ * 另外同步：主人正骑在布娃娃上，永远在范围内，其装备
+ * 也早就同步过来了
  */
 public final class RagdollEquipment {
 
     private RagdollEquipment() {
     }
 
-    /** Which armour slot covers a given body part. Legs are covered twice. */
+    /** 某个身体部位对应哪个盔甲槽位。腿会被盖两次 */
     private static EquipmentSlot primarySlot(BodyPart part) {
         return switch (part) {
             case HEAD -> EquipmentSlot.HEAD;
@@ -41,22 +41,22 @@ public final class RagdollEquipment {
     }
 
     /**
-     * Renders whatever armour covers this part, at the transform already on the stack.
+     * 用栈上已有的变换，画出盖住这个部位的盔甲
      *
-     * @param inner  the tighter model vanilla uses for leggings
-     * @param outer  the model vanilla uses for everything else
+     * @param inner 原版给护腿用的那套更贴身的模型
+     * @param outer 原版给其他部位用的模型
      */
     public static void render(RagdollEntity entity, Player owner, BodyPart part,
                               PoseStack poseStack, MultiBufferSource buffer, int light,
                               HumanoidModel<?> inner, HumanoidModel<?> outer) {
         EquipmentSlot slot = primarySlot(part);
-        // Leggings use the inner, slimmer model; everything else uses the outer one.
+        // 护腿用贴身的内层模型，其余部位用外层模型
         boolean useInner = slot == EquipmentSlot.LEGS;
 
         renderPiece(equipment(entity, owner, slot), part, poseStack, buffer, light,
                 useInner ? inner : outer, useInner);
 
-        // A leg also carries a boot, drawn over the legging.
+        // 腿上还要再穿一只靴子，画在护腿之上
         if (part == BodyPart.LEG_LEFT || part == BodyPart.LEG_RIGHT) {
             renderPiece(equipment(entity, owner, EquipmentSlot.FEET), part, poseStack, buffer,
                     light, outer, false);
@@ -64,8 +64,8 @@ public final class RagdollEquipment {
     }
 
     /**
-     * A corpse wears what it is carrying, not what its owner is wearing now. Reading the
-     * live player would strip a body the moment its owner respawned in fresh gear.
+     * 尸体穿的是自己带着的那套，不是主人现在穿的那身
+     * 去读活着的玩家，主人一重生换上新的装备，这具身体就会被剥光
      */
     private static ItemStack equipment(RagdollEntity entity, Player owner, EquipmentSlot slot) {
         if (entity instanceof CorpseEntity corpse) {
@@ -86,7 +86,7 @@ public final class RagdollEquipment {
             return;
         }
 
-        // Leather is tinted by its dye, with an undyed overlay drawn on top.
+        // 皮革按染料染色，上面再叠一层未染色的遮罩
         if (stack.getItem() instanceof DyeableLeatherItem dyeable) {
             int colour = dyeable.getColor(stack);
             draw(piece, poseStack, buffer, light, texture(armor, inner, null),
@@ -125,8 +125,8 @@ public final class RagdollEquipment {
     }
 
     /**
-     * Vanilla's armour texture naming: layer 2 is the slim leggings sheet, layer 1 is
-     * everything else. Modded materials may carry their own namespace.
+     * 原版盔甲贴图的命名规则：layer 2 是贴身的护腿图集，layer 1 是其他所有部位
+     * 模组材料可能带自己的命名空间
      */
     private static ResourceLocation texture(ArmorItem armor, boolean inner, String overlay) {
         String material = armor.getMaterial().getName();
@@ -142,7 +142,7 @@ public final class RagdollEquipment {
                 + (overlay == null ? "" : "_" + overlay) + ".png";
 
         ResourceLocation location = new ResourceLocation(namespace, path);
-        // Fall back to nothing rather than crashing on a material with no sheet.
+        // 材料没有对应图集时回退到皮甲贴图，而不是崩溃
         return Minecraft.getInstance().getResourceManager().getResource(location).isPresent()
                 ? location
                 : new ResourceLocation("minecraft", "textures/models/armor/leather_layer_1.png");

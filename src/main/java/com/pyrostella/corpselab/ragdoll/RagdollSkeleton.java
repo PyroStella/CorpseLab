@@ -13,18 +13,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A humanoid ragdoll: six bodies and five joints, assembled standing and then let go.
+ * 一具人形布娃娃：六个刚体和五个关节，先按站姿装配再放手
  *
- * <p>The solver knows nothing about Minecraft. The caller supplies a
- * {@link WorldCollider} and reads the resulting transforms back out. Geometry comes from
- * {@link HumanoidGeometry}, so the assembly lines up with the model that will be drawn on
- * it rather than with hand-written offsets.
+ * <p>求解器对 Minecraft 一无所知。调用方提供 {@link WorldCollider}
+ * 再把结果变换读出来。几何来自 {@link HumanoidGeometry}
+ * 所以装配结果与将要绘制在其上的模型对齐
+ * 而不是与手写的偏移对齐
  */
 public final class RagdollSkeleton {
 
-    /** Bone pointing along world +Y, expressed as a joint frame whose local X is the bone. */
+    /** 指向世界 +Y 的骨骼，表示为一个关节坐标系，其局部 X 轴即该骨骼 */
     private static final Quaterniond BONE_UP = new Quaterniond().rotateZ(Math.toRadians(90.0D));
-    /** Bone pointing along world -Y. */
+    /** 指向世界 -Y 的骨骼 */
     private static final Quaterniond BONE_DOWN = new Quaterniond().rotateZ(Math.toRadians(-90.0D));
 
     private final Map<BodyPart, RigidBody> parts = new EnumMap<>(BodyPart.class);
@@ -33,12 +33,12 @@ public final class RagdollSkeleton {
     private SelfCollision selfCollisionConstraint;
 
     /**
-     * Converts a Minecraft entity yaw into the body orientation the renderer expects.
+     * 把 Minecraft 实体的 yaw 换算成渲染器期望的身体朝向
      *
-     * <p>The half turn is not arbitrary. Vanilla draws a humanoid as
-     * {@code rotateY(180 - yaw)} followed by {@code scale(-1, -1, 1)}, and this renderer
-     * reuses those same model parts, so the body's own rotation has to carry that same
-     * half turn. Without it every ragdoll spawns facing backwards.
+     * <p>这半个转向并不是随意的。原版绘制人形时先做 {@code rotateY(180 - yaw)}
+     * 再做 {@code scale(-1, -1, 1)}，而本渲染器复用了同样的模型部件
+     * 所以身体自身的旋转必须带上同样的半圈
+     * 少了它，每具布娃娃出生时都会朝后
      */
     public static double facingFromYaw(double yawDegrees) {
         return Math.toRadians(180.0D - yawDegrees);
@@ -47,8 +47,8 @@ public final class RagdollSkeleton {
     private final LimbPose pose;
 
     /**
-     * @param feetX  world position of the figure's feet
-     * @param facing body orientation in radians, from {@link #facingFromYaw}
+     * @param feetX  人物脚部的世界坐标
+     * @param facing 身体朝向，单位为弧度，来自 {@link #facingFromYaw}
      */
     public RagdollSkeleton(double feetX, double feetY, double feetZ, double facing) {
         this(feetX, feetY, feetZ, facing, true, LimbPose.STANDING);
@@ -59,8 +59,8 @@ public final class RagdollSkeleton {
     }
 
     /**
-     * @param pose the pose the player's model was in, so the body starts exactly where
-     *             they were drawn instead of snapping to a neutral stance
+     * @param pose 玩家模型当时所处的姿态，使身体从被绘制的位置开始
+     *             而不是跳到中立站姿
      */
     public RagdollSkeleton(double feetX, double feetY, double feetZ, double facing,
                            boolean selfCollision, LimbPose pose) {
@@ -75,14 +75,14 @@ public final class RagdollSkeleton {
             orientation.transform(offset);
             body.pos.set(feetX + offset.x, feetY + offset.y, feetZ + offset.z);
 
-            // Body yaw, then the part's own animated rotation.
+            // 先身体 yaw，再叠加部件自身的动画旋转
             body.rot.set(orientation).mul(
                     HumanoidGeometry.bodyRotation(part, pose, new Quaterniond()));
 
-            // Linear damping is kept very light: it is air drag, not brakes. At 0.999 per
-            // substep a launched body lost a third of its speed within a second, so an
-            // explosion sagged instead of throwing anyone. Angular damping stays higher,
-            // because unchecked spin is what makes a settled pile shiver.
+            // 线性阻尼保持得很轻：它是空气阻力，而不是刹车。每个子步 0.999 时
+            // 被抛出的身体在一秒内就失去三分之一的速度，于是爆炸只会让它
+            // 下坠而抛不动人。角阻尼保持得更高，因为不受约束的旋转
+            // 才是一堆身体静止后还在发抖的原因
             body.linearDamping = 0.9998D;
             body.angularDamping = 0.995D;
 
@@ -98,8 +98,8 @@ public final class RagdollSkeleton {
     }
 
     /**
-     * Registers every pair of parts that is not joined by a joint. The torso is joined to
-     * all five other parts, so it never appears here.
+     * 注册每一对没有关节相连的部件。躯干与其余五个部件都相连
+     * 因此它不会出现在这里
      */
     private void buildSelfCollision() {
         SelfCollision collision = new SelfCollision();
@@ -117,9 +117,9 @@ public final class RagdollSkeleton {
             }
         }
 
-        // Stiffer than the default: a soft push lets a limb sink into another under the
-        // weight of a settling body, which is most of what "the limbs phase together"
-        // looks like in practice.
+        // 比默认更硬：推力太软时，四肢会在渐渐安定下来的身体自重下
+        // 陷进另一肢，实践中所谓的"四肢互相穿模"
+        // 大部分就是这个样子
         collision.compliance = 0.00005D;
 
         world.constraints.add(collision);
@@ -127,20 +127,20 @@ public final class RagdollSkeleton {
     }
 
     /**
-     * Deepest overlap between parts that are not joined, in blocks. Always zero when self
-     * collision is disabled, since nothing is tracked.
+     * 没有关节相连的部件之间最深的重叠量，单位为格。自碰撞关闭时
+     * 始终为零，因为此时不做任何跟踪
      */
     public double worstSelfOverlap() {
         return selfCollisionConstraint == null ? 0.0D : selfCollisionConstraint.worstOverlap();
     }
 
     /**
-     * Sphere centres along a part's long axis, in body space.
+     * 沿部件长轴分布的球心，位于身体空间
      *
-     * <p>Three per limb, reaching the ends. Two spheres at half height left the outer
-     * 12% of each limb - the hands and the feet - with no collision volume at all, which
-     * is why limbs visibly passed through each other: the parts that swing furthest and
-     * read most clearly were exactly the parts not being tested.
+     * <p>每个肢体三个，一直排到两端。只在半高处放两个球时，每个肢体
+     * 外侧 12% 的区域（手和脚）完全没有碰撞体积
+     * 这正是肢体互相穿透肉眼可见的原因：摆动幅度最大、看上去最明显的
+     * 部位恰恰是没有参与检测的部位
      */
     private static List<Vector3d> spheresFor(BodyPart part) {
         if (part == BodyPart.HEAD) {
@@ -154,13 +154,13 @@ public final class RagdollSkeleton {
     }
 
     /**
-     * Just under half the gap between the two legs, deliberately.
+     * 刻意取略小于两腿间隙一半的值
      *
-     * <p>Vanilla's legs are 0.25 wide but their pivots are only 0.2375 apart, so at the
-     * full inscribed radius the two limbs the model puts side by side would be in
-     * permanent conflict: the solver pushes every tick, never resolves, and the settled
-     * body carries a visible overlap. Sizing to the gap instead is the largest radius
-     * that still lets adjacent limbs rest against each other.
+     * <p>原版的腿宽 0.25，但两个枢轴只相距 0.2375
+     * 若取满内切半径，模型并排放置的两条肢体
+     * 就会长期冲突：求解器每个 tick 都在推，永远解不开
+     * 安定后的身体还带着肉眼可见的重叠。改为按间隙定尺寸
+     * 是仍能让相邻肢体相互贴靠的最大半径
      */
     private static double sphereRadius(BodyPart part) {
         if (part == BodyPart.HEAD) {
@@ -170,9 +170,9 @@ public final class RagdollSkeleton {
     }
 
     private void buildJoints() {
-        // Each limb hangs off a real point on the model: the neck, a shoulder, a hip.
-        // Anchors are derived from that point in both parts' own frames, so they stay
-        // correct whatever pose the ragdoll started in.
+        // 每条肢体都挂在模型上真实存在的点：脖子、肩、胯。锚点由该点
+        // 在两个部件各自的坐标系中推导而来，所以无论布娃娃以什么
+        // 姿态开始都能保持正确
         joinAt(BodyPart.HEAD, BONE_UP, 50.0D, -70.0D, 70.0D);
         joinAt(BodyPart.ARM_RIGHT, BONE_DOWN, 100.0D, -45.0D, 45.0D);
         joinAt(BodyPart.ARM_LEFT, BONE_DOWN, 100.0D, -45.0D, 45.0D);
@@ -217,23 +217,23 @@ public final class RagdollSkeleton {
 
     private double lastImpact;
 
-    /** Advances the ragdoll by one Minecraft tick. */
+    /** 把布娃娃推进一个 Minecraft tick */
     public void tick() {
         double before = world.maxBodySpeed();
         world.step(1.0D / 20.0D);
-        // How much speed the world took away this tick. A hard landing or a wall shows up
-        // here as a large drop; sliding to a halt does not.
+        // 本 tick 中世界夺走了多少速度。重着地或撞墙
+        // 在这里表现为大幅下降，而滑行到停止则不会
         lastImpact = Math.max(0.0D, before - world.maxBodySpeed());
     }
 
-    /** Speed lost to collisions in the last tick, in blocks per second. */
+    /** 上一个 tick 因碰撞损失的速度，单位为格每秒 */
     public double lastImpact() {
         return lastImpact;
     }
 
     /**
-     * Applies a launch impulse to every part, so the whole body is thrown rather than
-     * being torn apart by a shove to one limb.
+     * 对每个部件施加抛射冲量，让整个身体被抛出
+     * 而不是被推在某一条肢体上撕散
      */
     public void launch(Vector3d velocity) {
         for (RigidBody body : parts.values()) {
@@ -241,17 +241,17 @@ public final class RagdollSkeleton {
         }
     }
 
-    /** True while any part is resting on a surface. */
+    /** 任一部件贴靠表面时为真 */
     public boolean isGrounded() {
         return world.isGrounded();
     }
 
-    /** True once every part has slowed below {@code threshold} blocks per second. */
+    /** 每个部件的速度都降到每秒 {@code threshold} 格以下时为真 */
     public boolean isSettled(double threshold) {
         return world.maxBodySpeed() < threshold;
     }
 
-    /** Centre of mass, which is where the player entity should be kept. */
+    /** 质心，玩家实体应当保持在这个位置 */
     public Vector3d centreOfMass(Vector3d dest) {
         dest.set(0.0D);
         double total = 0.0D;

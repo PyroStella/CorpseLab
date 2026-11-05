@@ -13,16 +13,16 @@ import org.joml.Vector3f;
 import java.util.function.Supplier;
 
 /**
- * One tick of ragdoll pose, sent to everyone tracking the entity.
+ * 一个 tick 的 ragdoll 姿势，发给所有正在跟踪该 entity 的客户端
  *
- * <p>The packet carries its own anchor rather than leaning on the entity's synced
- * position. That is what stops the body ghosting: vanilla sends entity movement as
- * quantised deltas that arrive a tick behind, so measuring limb offsets against the
- * entity's client-side position put the limbs and their anchor on two different clocks,
- * and a fast-moving ragdoll visibly tore into a second flickering body.
+ * <p>包里自带锚点，而不是依赖 entity 的同步位置
+ * 这才是止住残影的关键：原版发送 entity 位移用的是量化增量
+ * 到达时晚一个 tick，于是拿 entity 的客户端位置去量肢体偏移
+ * 就把肢体和锚点放到了两套时钟上，高速移动的 ragdoll 会肉眼可见地
+ * 撕裂成第二具闪烁的身体
  *
- * <p>With the anchor in the packet, a limb's world position is known exactly from one
- * message, and the renderer simply subtracts wherever the entity happens to be drawn.
+ * <p>锚点在包里，一条消息就足以精确知道某个肢体的世界坐标
+ * 渲染时只要减去 entity 实际被画在的位置
  */
 public final class RagdollPosePacket {
 
@@ -47,8 +47,8 @@ public final class RagdollPosePacket {
         Vector3f[] positions = new Vector3f[RagdollEntity.PART_COUNT];
         Quaternionf[] rotations = new Quaternionf[RagdollEntity.PART_COUNT];
 
-        // The anchor is the entity's authoritative position at the moment of sending, and
-        // the offsets are measured from it, so the two can never disagree.
+        // 锚点就是发送那一刻 entity 的权威位置，偏移量都以它为基准量出
+        // 所以两者永远不会对不上
         double ax = ragdoll.getX();
         double ay = ragdoll.getY();
         double az = ragdoll.getZ();
@@ -98,8 +98,8 @@ public final class RagdollPosePacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        // Routed through DistExecutor so the client-only handler class is never loaded on
-        // a dedicated server.
+        // 经由 DistExecutor 转发，这样纯客户端的处理类
+        // 就永远不会在专用服务端上被加载
         context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> ClientPoseHandler.accept(
                         entityId, anchorX, anchorY, anchorZ, positions, rotations)));

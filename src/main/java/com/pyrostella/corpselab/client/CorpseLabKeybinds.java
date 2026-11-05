@@ -14,7 +14,7 @@ public final class CorpseLabKeybinds {
             GLFW.GLFW_KEY_H,
             CATEGORY);
 
-    /** Hold to take hold of a nearby body and drag it around. */
+    /** 按住即可抓住附近的一具身体并拖拽 */
     public static final KeyMapping GRAB = new KeyMapping(
             "key.tumble.grab",
             InputConstants.Type.KEYSYM,

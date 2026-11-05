@@ -29,20 +29,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * What a player leaves behind when they die: their body, still carrying their things.
+ * 玩家死亡后留下的东西：他们的尸体，仍然带着随身物品
  *
- * <p>Shares the living ragdoll's physics and rendering, but almost nothing of its
- * lifecycle. A corpse has no rider, persists across a restart, and settles into a fixed
- * pose rather than being simulated forever - once it has stopped moving there is nothing
- * left to compute, so it stops stepping entirely and holds its final pose.
+ * <p>与活体布娃娃共用物理与渲染，但生命周期几乎完全不同
+ * 尸体没有骑乘者，会跨重启保留，并最终固定为一个姿态而不是被永远模拟
+ * ——一旦停止移动就没有任何东西需要计算，于是完全停止步进
+ * 并保持最终姿态
  */
 public class CorpseEntity extends SettlingBody {
 
     /**
-     * Sized to a vanilla six-row chest rather than to a player's 41 slots. Only threeRows
-     * and sixRows accept a container, and 41 does not fit in three, so the corpse can be
-     * opened with Minecraft's own container UI and needs no custom screen at all. Slots
-     * 41 to 53 stay empty.
+     * 大小按原版六行箱子确定，而不是按玩家的 41 格
+     * 只有 threeRows 和 sixRows 接受容器，而 41 格放不进三行
+     * 因此尸体可以直接用 Minecraft 自带的容器 UI 打开，完全不需要自定义界面
+     * 41 到 53 号槽位保持为空
      */
     public static final int SLOT_COUNT = 54;
 
@@ -50,12 +50,12 @@ public class CorpseEntity extends SettlingBody {
     private static final int OFFHAND_SLOT = 40;
 
     /**
-     * What the body is visibly wearing and holding.
+     * 尸体身上可见地穿着和拿着的东西
      *
-     * <p>The container itself never reaches the client - a SimpleContainer is server-side
-     * state - so a corpse rendered from it alone came out as a bare character. These six
-     * slots are synced so the body looks like the player who died, and they update as it
-     * is looted, so taking the helmet bares its head.
+     * <p>容器本身永远到不了客户端，因为 SimpleContainer 属于服务端状态
+     * 只靠容器渲染出来的尸体就是一个光着身子的角色。这六个槽位会同步
+     * 让尸体看起来像死去的那个玩家，并随着被搜刮而更新
+     * 所以拿走头盔就会露出头部
      */
     private static final EntityDataAccessor<ItemStack> WORN_HEAD = worn();
     private static final EntityDataAccessor<ItemStack> WORN_CHEST = worn();
@@ -70,21 +70,21 @@ public class CorpseEntity extends SettlingBody {
 
     private final SimpleContainer contents = new SimpleContainer(SLOT_COUNT);
 
-    /** Which hotbar slot the player was holding, so the body keeps holding the same thing. */
+    /** 玩家当时拿的是哪个快捷栏槽位，好让尸体继续拿着同样的东西 */
     private int mainHandSlot = -1;
 
     private String ownerName = "";
 
     /**
-     * Whether this body ever held anything. Without it, a death under keepInventory
-     * creates an empty corpse that despawns on its first tick.
+     * 这具尸体是否曾经装过东西。没有它的话，在 keepInventory 下死亡会创建一个
+     * 空尸体，并在第一个 tick 就消失
      */
     private boolean everHadItems;
 
     public CorpseEntity(EntityType<? extends CorpseEntity> type, Level level) {
         super(type, level);
-        // Looting through the container screen changes the contents without going through
-        // this class, so the sync has to be driven by the container itself.
+        // 通过容器界面搜刮会改变内容物而不会经过
+        // 这个类，所以同步必须由容器自身来驱动
         contents.addListener(container -> syncEquipment());
     }
 
@@ -99,7 +99,7 @@ public class CorpseEntity extends SettlingBody {
         entityData.define(HELD_OFF, ItemStack.EMPTY);
     }
 
-    /** Copies the visible slots out of the container and onto the wire. */
+    /** 把可见槽位从容器里复制出来并发到网络上 */
     private void syncEquipment() {
         if (level().isClientSide) {
             return;
@@ -114,7 +114,7 @@ public class CorpseEntity extends SettlingBody {
                 : ItemStack.EMPTY);
     }
 
-    /** Builds a corpse where a player just died, carrying the pose and motion they had. */
+    /** 在玩家刚刚死亡的位置创建尸体，并带上他们当时的姿态与运动状态 */
     public static CorpseEntity of(Player player, Vec3 momentum) {
         Level level = player.level();
         CorpseEntity corpse = new CorpseEntity(CorpseLabRegistry.CORPSE.get(), level);
@@ -148,7 +148,7 @@ public class CorpseEntity extends SettlingBody {
         this.ownerName = name;
     }
 
-    /** Moves a dead player's entire inventory into the corpse. */
+    /** 把死亡玩家的整个背包搬进尸体里 */
     public void takeInventoryFrom(Player player) {
         for (int i = 0; i < player.getInventory().items.size() && i < ARMOUR_START; i++) {
             contents.setItem(i, player.getInventory().items.get(i).copy());
@@ -178,14 +178,14 @@ public class CorpseEntity extends SettlingBody {
         }
 
         int lifetime = CorpseLabConfig.SERVER.corpseLifetimeTicks.get();
-        // Zero means never time out, so a body is only ever removed once looted.
+        // 零表示永不超时，因此尸体只有在被搜刮后才会移除
         if (lifetime > 0 && age() >= lifetime) {
             dropEverything();
             discard();
         }
     }
 
-    /** Scatters what is left, so a timed-out corpse never silently eats someone's things. */
+    /** 把剩下的东西撒出来，让超时消失的尸体不会悄悄吞掉别人的物品 */
     private void dropEverything() {
         for (int i = 0; i < contents.getContainerSize(); i++) {
             ItemStack stack = contents.getItem(i);
@@ -214,8 +214,8 @@ public class CorpseEntity extends SettlingBody {
     }
 
     /**
-     * Puts everything back where the dead player had it: armour on, off hand filled, and
-     * each item into the slot it came from where that slot is still free.
+     * 把所有东西放回死亡玩家原来所在的位置，盔甲穿好、副手填满
+     * 每件物品则放回它来自的槽位，前提是该槽位仍然空着
      */
     public void equipOnto(Player player) {
         for (int i = 0; i < player.getInventory().armor.size(); i++) {
@@ -258,7 +258,7 @@ public class CorpseEntity extends SettlingBody {
         return Component.translatable("corpselab.container.corpse", ownerName);
     }
 
-    /** Corpses persist: a player logging back in must still find their body. */
+    /** 尸体会持久保留：玩家重新登录时必须还能找到自己的尸体 */
     @Override
     public boolean shouldBeSaved() {
         return true;
@@ -289,7 +289,7 @@ public class CorpseEntity extends SettlingBody {
         skeleton.setCollider(new LevelCollider(level()));
         setSkeleton(skeleton);
 
-        // Restore the pose it settled in, or a reloaded body would stand back up.
+        // 恢复它定格时的姿态，否则重载后的尸体会重新站起来
         BodyPose.read(tag, skeleton);
 
         setFrozen(true);
@@ -325,16 +325,16 @@ public class CorpseEntity extends SettlingBody {
 
     @Override
     public boolean isPickable() {
-        // Unlike a living ragdoll, a corpse has to be clickable to be looted.
+        // 与活体布娃娃不同，尸体必须能被点击才能被搜刮
         return true;
     }
 
     /**
-     * A box around the whole body rather than the registered 0.6 cube.
+     * 包住整个身体的盒子，而不是注册的 0.6 立方体
      *
-     * <p>The entity sits at the centre of mass, but a player aims at the limbs they can
-     * see, which sprawl about a block either side of it. A default box would leave most
-     * of a visible body unclickable.
+     * <p>entity 位于质心上，但玩家瞄准的是能看见的四肢，这些四肢会
+     * 向两侧伸出一格左右。用默认的包围盒会让可见身体的大部分
+     * 无法被点击
      */
     @Override
     protected AABB makeBoundingBox() {
@@ -342,7 +342,7 @@ public class CorpseEntity extends SettlingBody {
                 getX() + 0.7D, getY() + 0.7D, getZ() + 0.7D);
     }
 
-    /** Lets the container drop its contents if the corpse is destroyed some other way. */
+    /** 让容器在尸体以其他方式被摧毁时掉出内容物 */
     public Container container() {
         return contents;
     }
@@ -352,8 +352,8 @@ public class CorpseEntity extends SettlingBody {
     }
 
     /**
-     * Equipment shown on the body. Read from synced data rather than the container, so it
-     * is correct on the client, where the container does not exist.
+     * 显示在尸体身上的装备。从同步数据而不是容器读取
+     * 因此在没有容器的客户端上也是正确的
      */
     public ItemStack equipment(EquipmentSlot slot) {
         return switch (slot) {

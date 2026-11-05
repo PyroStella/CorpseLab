@@ -7,19 +7,19 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A body that has been left behind: it falls, settles, and then stops costing anything.
+ * 被留下的身体：它落下、停稳，然后就再也不产生任何开销
  *
- * <p>Shared by player corpses and mob bodies, which differ only in what they carry and
- * how long they last. The interesting part is the freeze: simulating a body that has
- * stopped moving is pure waste, but a body that can <em>never</em> move again is scenery
- * rather than a ragdoll, so a frozen one still checks now and then whether the ground it
- * was lying on is still there.
+ * <p>玩家尸体和生物尸体共用这段逻辑，两者的区别只在于携带的
+ * 东西和存在的时长。有意思的地方是冻结：模拟一具已经停止移动
+ * 的身体纯属浪费，但一具<em>再也</em>动不了的身体就是布景而
+ * 不是布娃娃，所以被冻结的身体仍会时不时检查一下它躺着的
+ * 那块地面还在不在
  */
 public abstract class SettlingBody extends RagdollEntity {
 
     /**
-     * How often a frozen body checks that it is still supported. One step a second is a
-     * twentieth of the cost of simulating it, and far quicker than anyone can dig.
+     * 冻结的身体多久检查一次自己是否还有支撑。每秒走一步的代价是
+     * 完整模拟的二十分之一，而且比任何人挖掉方块都快
      */
     private static final int WAKE_CHECK_INTERVAL = 20;
 
@@ -52,7 +52,7 @@ public abstract class SettlingBody extends RagdollEntity {
     protected void serverTick() {
         age++;
 
-        // Being dragged is motion, so a held body must not freeze under someone's hand.
+        // 被拖动也算运动，所以被手抓着的身体不能在别人手里冻住
         if (isGrabbed()) {
             wake();
         }
@@ -78,7 +78,7 @@ public abstract class SettlingBody extends RagdollEntity {
         checkLifetime();
     }
 
-    /** Steps once in a while to notice if the ground it was lying on has gone. */
+    /** 隔一段时间走一步，看它原先躺着的地面还在不在 */
     private void checkStillSupported() {
         if (++wakeCheck < WAKE_CHECK_INTERVAL) {
             return;
@@ -93,19 +93,19 @@ public abstract class SettlingBody extends RagdollEntity {
         }
     }
 
-    /** Puts a frozen body back under simulation, for anything that disturbs it. */
+    /** 把冻结的身体重新纳入模拟，用于任何打扰到它的情况 */
     public void wake() {
         frozen = false;
         settledTicks = 0;
     }
 
-    /** Throws the body and wakes it, so a blast moves it like it moves the living. */
+    /** 抛出身体并唤醒它，这样爆炸能像推动活人一样推动它 */
     public void launchAndWake(Vec3 velocity) {
         wake();
         launch(velocity);
     }
 
-    /** Decides when this body goes away. Called every tick. */
+    /** 决定这具身体什么时候消失。每个 tick 调用一次 */
     protected abstract void checkLifetime();
 
     @Override
@@ -119,10 +119,10 @@ public abstract class SettlingBody extends RagdollEntity {
     }
 
     /**
-     * A box around the whole body rather than the registered cube.
+     * 用包住整具身体的盒子，而不是注册时给的那个立方体
      *
-     * <p>The entity sits at the centre of mass, but a player aims at the limbs they can
-     * see, which sprawl about a block either side of it.
+     * <p>这个 entity 位于质心，但玩家瞄准的是自己看得见的肢体
+     * 而这些肢体会摊到质心两侧各一个方块左右
      */
     @Override
     protected AABB makeBoundingBox() {

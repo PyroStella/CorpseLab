@@ -1,13 +1,14 @@
 package com.pyrostella.corpselab.config;
 
+import com.pyrostella.corpselab.plan.PlanConfig;
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 /**
- * Gameplay and physics values live on the SERVER spec, so a server dictates them to
- * every client. Presentation lives on the CLIENT spec.
+ * 玩法与物理数值放在 SERVER spec 上，由服务端把它们下发给每个客户端
+ * 表现层相关的放在 CLIENT spec 上
  *
- * <p>Defaults here are starting points for tuning, not final values.
+ * <p>这里的默认值只是调参的起点，不是最终值
  */
 public final class CorpseLabConfig {
 
@@ -109,177 +110,171 @@ public final class CorpseLabConfig {
         public final ForgeConfigSpec.DoubleValue soundVolume;
 
         private Server(ForgeConfigSpec.Builder b) {
-            b.comment("Ragdoll behaviour. Server-authoritative.").push("general");
+            b.comment("布娃娃行为，由服务端裁定").push("general");
 
             enabled = b
-                    .comment("Master switch. When false, nothing ever ragdolls.")
+                    .comment("总开关，关掉之后任何东西都不会变成布娃娃")
                     .define("enabled", true);
 
             allowManualTrigger = b
-                    .comment("Whether players may ragdoll themselves with the keybind.")
+                    .comment("玩家能否用按键把自己变成布娃娃")
                     .define("allowManualTrigger", true);
 
             affectCreative = b
-                    .comment("Whether players in creative mode can be ragdolled.")
+                    .comment("创造模式玩家是否也会被摔成布娃娃")
                     .define("affectCreative", true);
 
             cooldownTicks = b
-                    .comment("Ticks a player must wait between ragdolls.")
+                    .comment("两次摔成布娃娃之间必须等待的 tick 数")
                     .defineInRange("cooldownTicks", 60, 0, 20 * 60);
 
             minGetUpTicks = b
-                    .comment("Ticks a player must stay down before they may get up at all.")
+                    .comment("倒地后至少趴够多少 tick 才能起身")
                     .defineInRange("minGetUpTicks", 60, 0, 20 * 60);
 
             requireGroundedToGetUp = b
-                    .comment("Whether a player must have actually landed before getting up.",
-                            "Without this a player flung through the air can stand up mid-flight,",
-                            "which cancels the whole point of being thrown.")
+                    .comment("是否必须先真正落地才能起身")
                     .define("requireGroundedToGetUp", true);
 
             groundedTicksBeforeGetUp = b
-                    .comment("Ticks a body must stay on the ground before its player may rise.",
-                            "Counted from the moment it lands, and reset if it is thrown clear",
-                            "again, so a bouncing body does not qualify on a graze.")
+                    .comment("身体必须在落地后趴够多少 tick，玩家才能起身",
+                            "从落地那一刻开始计，中途又被抛起则重新计时",
+                            "这样弹跳中的身体蹭一下地面不算数")
                     .defineInRange("groundedTicksBeforeGetUp", 20, 0, 20 * 60);
 
             b.pop();
-            b.comment("Physics limits.").push("physics");
+            b.comment("物理上限").push("physics");
 
             maxLaunchSpeed = b
-                    .comment("Hard cap on launch speed, in blocks per second.",
-                            "Prevents a large explosion from firing a body out of the world.")
+                    .comment("击飞速度的硬上限，单位为格每秒",
+                            "防止大爆炸把身体射出世界之外")
                     .defineInRange("maxLaunchSpeed", 128.0D, 1.0D, 1024.0D);
 
             partSelfCollision = b
-                    .comment("Whether limbs collide with each other.",
-                            "Off is cheaper and lets a body settle flatter, but arms end up inside legs.")
+                    .comment("肢体之间是否互相碰撞",
+                            "关掉更省 CPU，身体也摊得更平，代价是手臂会插进腿里")
                     .define("partSelfCollision", true);
 
             b.pop();
-            b.comment("What a ragdolled player can still do.").push("controls");
+            b.comment("玩家变成布娃娃后还能做什么").push("controls");
 
             rollEnabled = b
-                    .comment("Whether WASD rolls the body while down.")
+                    .comment("倒地时 WASD 能否让身体滚动")
                     .define("rollEnabled", true);
 
             rollSpeed = b
-                    .comment("How fast a downed player can squirm, in blocks per second.",
-                            "Walking is about 4.3, so keep this well below it or being downed",
-                            "costs the player nothing.")
+                    .comment("倒地玩家扭动的速度，单位为格每秒")
                     .defineInRange("rollSpeed", 1.5D, 0.0D, 10.0D);
 
             rollSpin = b
-                    .comment("Spin added while rolling, in radians per second.",
-                            "Cosmetic: it makes the body tumble rather than slide. Movement itself",
-                            "comes from rollSpeed, because torque alone cannot roll a prone body.")
+                    .comment("滚动时附加的自转，单位为弧度每秒",
+                            "纯表现：让身体翻滚而不是平移，位移本身",
+                            "来自 rollSpeed，因为单靠力矩推不翻趴着的身体")
                     .defineInRange("rollSpin", 3.0D, 0.0D, 50.0D);
 
             b.pop();
-            b.comment("Picking bodies up and dragging them around.").push("grab");
+            b.comment("抓起身体并拖着走").push("grab");
 
             grabEnabled = b
-                    .comment("Whether players can grab a downed player, a corpse or a dead mob.")
+                    .comment("玩家能否抓起倒地的玩家、尸体或死掉的生物")
                     .define("enabled", true);
 
             grabReach = b
-                    .comment("How far away a body can be grabbed from, in blocks.")
+                    .comment("能从多远处抓到一具身体，单位为格")
                     .defineInRange("reach", 4.0D, 1.0D, 16.0D);
 
             grabHoldDistance = b
-                    .comment("How far in front of the grabber the held limb is pulled to.")
+                    .comment("被抓住的肢体被拉到抓取者身前多远")
                     .defineInRange("holdDistance", 2.0D, 0.5D, 8.0D);
 
             grabStrength = b
-                    .comment("How hard the grip pulls, as a rate per second.",
-                            "Higher is a firmer hold; too high and a body snaps about.")
+                    .comment("抓握的拉力，单位为每秒的速率",
+                            "越大抓得越牢，过大会让身体被甩来甩去")
                     .defineInRange("strength", 8.0D, 0.5D, 60.0D);
 
             grabBreakDistance = b
-                    .comment("How far the held limb may lag behind the hand before the grip",
-                            "breaks, in blocks. This is what stops a body being dragged through",
-                            "a wall: the limb catches, falls behind, and the grip lets go.")
+                    .comment("被抓住的肢体可以落后手多远、超过就松手，单位为格",
+                            "这条拦住了把身体拖穿墙的情况：",
+                            "肢体卡在墙上落后，抓握随即放开")
                     .defineInRange("breakDistance", 2.5D, 0.5D, 32.0D);
 
             b.pop();
-            b.comment("When a ragdoll ends on its own.").push("expiry");
+            b.comment("布娃娃自己结束的条件").push("expiry");
 
             safetyTimeoutTicks = b
-                    .comment("Hard limit on how long a ragdoll can last, in ticks.",
-                            "A backstop so a wedged body can never strand a player permanently.")
+                    .comment("一具布娃娃最长能存在的 tick 数，硬性上限",
+                            "兜底措施，免得卡住的身体把玩家永久困在地下")
                     .defineInRange("safetyTimeoutTicks", 600, 20, 20 * 600);
 
             expireWhenSlow = b
-                    .comment("Stand the player up automatically once the body stops moving.")
+                    .comment("身体一停下来就自动让玩家站起来")
                     .define("expireWhenSlow", false);
 
             releaseSpeedThreshold = b
-                    .comment("Speed below which the body counts as settled, in blocks per second.")
+                    .comment("低于这个速度就算静止，单位为格每秒")
                     .defineInRange("releaseSpeedThreshold", 0.1D, 0.001D, 10.0D);
 
             b.pop();
-            b.comment("What knocks a player down. Each trigger has its own threshold.").push("triggers");
+            b.comment("什么会把玩家撂倒，每种触发各有自己的阈值").push("triggers");
 
-            b.comment("Landing hard enough to hurt.").push("fall");
+            b.comment("摔得够狠就倒地").push("fall");
             fallEnabled = b.define("enabled", true);
             fallMinHeight = b
-                    .comment("Blocks fallen at or above which the player goes down, whatever the",
-                            "damage. Height and damage are separate conditions and either can fire:",
-                            "damage alone misses a long fall softened by armour or feather falling,",
-                            "and height alone misses a short drop onto something that hurts.",
-                            "Set to 0 to ignore height and go by damage only.")
+                    .comment("下落达到或超过这么多格就倒地，不管伤害多少",
+                            "高度和伤害是两个独立条件，任一满足即可",
+                            "只看伤害会漏掉被护甲或缓降减轻的长距离坠落",
+                            "只看高度会漏掉摔在尖东西上的短距离下落",
+                            "设为 0 表示不看高度，只按伤害判定")
                     .defineInRange("minHeight", 6.0D, 0.0D, 1024.0D);
 
             fallMinDamage = b
-                    .comment("Fall damage at or above which the player goes down.",
-                            "Set to 0 to ignore damage and go by height only.")
+                    .comment("摔落伤害达到或超过这么多就倒地",
+                            "设为 0 表示不看伤害，只按高度判定")
                     .defineInRange("minDamage", 4.0D, 0.0D, 1024.0D);
-            fallSlamMultiplier = b.comment("Share of the landing speed driven into the body.")
+            fallSlamMultiplier = b.comment("落地速度中有多少灌进身体")
                     .defineInRange("slamMultiplier", 0.5D, 0.0D, 10.0D);
             b.pop();
 
-            b.comment("Hitting something at speed, whatever the damage.").push("impact");
+            b.comment("以速度撞上东西，不管伤害多少").push("impact");
             impactEnabled = b.define("enabled", true);
             impactMinVelocityDelta = b
-                    .comment("Change in speed, in blocks per second, that counts as an impact.")
+                    .comment("速度变化达到多少格每秒才算撞击")
                     .defineInRange("minVelocityDelta", 16.0D, 0.0D, 1024.0D);
             impactMaxVelocityDelta = b
-                    .comment("Impacts above this are treated as this, so nothing is launched absurdly.")
+                    .comment("超过这个值的撞击按这个值处理，免得把人射得离谱")
                     .defineInRange("maxVelocityDelta", 120.0D, 0.0D, 1024.0D);
             b.pop();
 
-            b.comment("Taking a heavy blow.").push("hit");
+            b.comment("挨了一记重击").push("hit");
             hitEnabled = b.define("enabled", true);
-            hitMinDamage = b.comment("Damage in a single hit at or above which the player goes down.")
+            hitMinDamage = b.comment("单次攻击伤害达到或超过这么多就倒地")
                     .defineInRange("minDamage", 8.0D, 0.0D, 1024.0D);
             hitLaunchMultiplier = b
-                    .comment("How hard the blow throws the body, multiplied by the damage dealt.",
-                            "A 10 damage hit at the default throws the body at 15 blocks per second.")
+                    .comment("这一击把身体扔出去的力度，按造成的伤害倍乘",
+                            "默认值下，10 点伤害的一击会把身体以 15 格每秒扔出去")
                     .defineInRange("launchMultiplier", 1.5D, 0.0D, 100.0D);
 
             hitProjectileLaunchMultiplier = b
-                    .comment("The same, for anything tagged as a projectile: arrows, and gun",
-                            "mods that tag their damage properly.",
-                            "A bullet carries very little momentum compared to the damage it does,",
-                            "so being shot should drop someone where they stand rather than",
-                            "launching them. Set equal to launchMultiplier to disable the",
-                            "distinction.")
+                    .comment("同上，但用于标记为弹射物的伤害：箭，以及正确标记伤害的枪械模组",
+                            "子弹的动量远比它造成的伤害小",
+                            "所以中枪该让人原地倒下而不是飞出去",
+                            "把它设成与 launchMultiplier 相等即可取消这个区别")
                     .defineInRange("projectileLaunchMultiplier", 0.15D, 0.0D, 100.0D);
 
             hitMaxLaunchSpeed = b
-                    .comment("Hard ceiling on how fast any single blow can throw a body,",
-                            "in blocks per second. This is the safety net: launch scales with",
-                            "damage, and a modded weapon doing 30 damage would otherwise fling",
-                            "a player at 45 blocks per second no matter what else is configured.")
+                    .comment("单次攻击能把身体扔到多快的硬性上限，单位为格每秒",
+                            "这是安全网：击飞力度随伤害缩放",
+                            "否则一把造成 30 点伤害的模组武器会把玩家扔到 45 格每秒",
+                            "其他设置都拦不住")
                     .defineInRange("maxLaunchSpeed", 12.0D, 0.0D, 1024.0D);
 
             projectileDamageTypes = b
-                    .comment("Extra damage types or damage type tags to treat as projectiles.",
-                            "Gun mods define their own damage types and mostly do NOT join",
-                            "minecraft:is_projectile, so the vanilla tag alone does not catch them.",
-                            "Each entry may be either a damage type id or a tag id; both are tried.",
-                            "Verified against the jars: TACZ uses the tag tacz:bullets, and",
-                            "Superb Warfare uses superbwarfare:gun_damage and superbwarfare:projectile.")
+                    .comment("额外视作弹射物的伤害类型或伤害类型标签",
+                            "枪械模组有自己的伤害类型，大多没有加进",
+                            "minecraft:is_projectile，所以只靠原版标签抓不到它们",
+                            "每一项可以是伤害类型 id 或标签 id，两种都会尝试",
+                            "已对着 jar 核对过：TACZ 用标签 tacz:bullets",
+                            "Superb Warfare 用 superbwarfare:gun_damage 和 superbwarfare:projectile")
                     .defineList("projectileDamageTypes",
                             java.util.List.of("tacz:bullets",
                                     "superbwarfare:gun_damage",
@@ -287,112 +282,111 @@ public final class CorpseLabConfig {
                             entry -> entry instanceof String);
             b.pop();
 
-            b.comment("Being caught in a blast.").push("explosion");
+            b.comment("被爆炸波及时").push("explosion");
             explosionEnabled = b.define("enabled", true);
-            explosionMinPower = b.comment("Explosions weaker than this are ignored. TNT is 4.")
+            explosionMinPower = b.comment("威力低于这个值的爆炸忽略不计，TNT 是 4")
                     .defineInRange("minPower", 1.0D, 0.0D, 1024.0D);
             explosionRadiusPadding = b
-                    .comment("Extra blocks beyond the blast's reach that still knock a player down.")
+                    .comment("在爆炸范围之外再多出几格仍然会把人撂倒")
                     .defineInRange("radiusPadding", 2.0D, 0.0D, 64.0D);
             explosionLaunchMultiplier = b
-                    .comment("How hard the blast throws the body, multiplied by blast power and",
-                            "by how close the player was. At the default, standing next to TNT",
-                            "throws a body at about 40 blocks per second.")
+                    .comment("爆炸把身体抛出去的力度，按爆炸威力和距离倍乘",
+                            "默认值下，站在 TNT 旁边会把身体扔到约 40 格每秒")
                     .defineInRange("launchMultiplier", 10.0D, 0.0D, 1000.0D);
             b.pop();
 
-            b.comment("Being struck by lightning.").push("lightning");
+            b.comment("被闪电击中").push("lightning");
             lightningEnabled = b.define("enabled", true);
-            lightningLaunchSpeed = b.comment("Upward launch speed, in blocks per second.")
+            lightningLaunchSpeed = b.comment("向上击飞的速度，单位为格每秒")
                     .defineInRange("launchSpeed", 12.0D, 0.0D, 1024.0D);
             b.pop();
 
-            b.comment("Flying an elytra into something.").push("elytraCrash");
+            b.comment("鞘翅飞行时撞上东西").push("elytraCrash");
             crashEnabled = b.define("enabled", true);
-            crashMinDamage = b.comment("Crash damage at or above which the player goes down.")
+            crashMinDamage = b.comment("撞毁伤害达到或超过这么多就倒地")
                     .defineInRange("minDamage", 4.0D, 0.0D, 1024.0D);
-            crashLaunchMultiplier = b.comment("How much of the flight speed carries into the body.")
+            crashLaunchMultiplier = b.comment("飞行速度中有多少带进身体")
                     .defineInRange("launchMultiplier", 3.0D, 0.0D, 100.0D);
             b.pop();
 
             b.pop();
-            b.comment("States that must never trigger a ragdoll.",
-                    "Without these the mod fights the game: every slime block bounce, every",
-                    "riptide launch and every elytra takeoff would put the player on the floor.")
+            b.comment("这些状态下绝不应触发布娃娃",
+                    "没有它们，模组就会和游戏本身打架：每次史莱姆弹跳",
+                    "每次激流冲刺、每次鞘翅起飞都会把人放倒在地")
                     .push("suppressions");
 
             suppressionGraceTicks = b
-                    .comment("Ticks after a suppressed state ends during which triggers stay off.")
+                    .comment("被抑制的状态结束后，还要继续禁用触发多少 tick")
                     .defineInRange("graceTicks", 10, 0, 200);
             suppressRiptide = b.define("riptide", true);
-            suppressBounce = b.comment("Slime blocks and beds.").define("bounce", true);
+            suppressBounce = b.comment("史莱姆方块和床").define("bounce", true);
             suppressElytraFlight = b.define("elytraFlight", true);
             suppressCreativeFlight = b.define("creativeFlight", true);
-            suppressClimbing = b.comment("Ladders, vines and scaffolding.").define("climbing", true);
+            suppressClimbing = b.comment("梯子、藤蔓和脚手架").define("climbing", true);
             suppressWater = b
-                    .comment("Water. A player who clutches a pool after a long fall takes no",
-                            "damage in vanilla, but entering water is a large change in speed,",
-                            "which is exactly what the impact trigger looks for.")
+                    .comment("水。原版里长距离坠落后落进水坑不会受伤",
+                            "但入水本身是很大的速度变化",
+                            "恰好就是撞击触发要找的东西")
                     .define("water", true);
 
             b.pop();
-            b.comment("Hurting yourself by being thrown into things.").push("impactDamage");
+            b.comment("被扔进东西里时伤到自己").push("impactDamage");
 
             impactDamageEnabled = b.define("enabled", true);
             impactDamageThreshold = b
-                    .comment("Impact speed, in blocks per second, above which the body takes damage.")
+                    .comment("撞击速度超过多少格每秒身体就受伤")
                     .defineInRange("threshold", 12.0D, 0.0D, 1024.0D);
             impactDamageMultiplier = b.defineInRange("multiplier", 0.75D, 0.0D, 100.0D);
-            impactDamageMax = b.comment("Most damage one impact can do.")
+            impactDamageMax = b.comment("单次撞击最多造成多少伤害")
                     .defineInRange("max", 20.0D, 0.0D, 1024.0D);
             impactDamageCooldownTicks = b
-                    .comment("Ticks between impact damage applications, so a skid is not a shredder.")
+                    .comment("两次撞击伤害之间的间隔 tick，免得一路滑行变成绞肉机")
                     .defineInRange("cooldownTicks", 10, 0, 200);
 
             b.pop();
-            b.comment("What a player leaves behind when they die.").push("corpse");
+            b.comment("玩家死亡后留下什么").push("corpse");
 
             corpseEnabled = b
-                    .comment("Leave the body behind on death, holding what the player carried.",
-                            "With this off, death drops items the vanilla way.")
+                    .comment("死亡时把身体留在原地，身上带着玩家生前携带的物品",
+                            "关掉后按原版方式掉落物品")
                     .define("enabled", true);
 
             corpseLifetimeTicks = b
-                    .comment("How long a corpse lasts before it times out, in ticks.",
-                            "Anything still inside is dropped rather than destroyed.",
-                            "Zero means a body never times out and waits to be looted.")
+                    .comment("尸体存在多少 tick 后自动消失",
+                            "还在里面的东西会掉出来而不是被销毁",
+                            "0 表示永不过期，一直等着被搜刮")
                     .defineInRange("lifetimeTicks", 20 * 60 * 10, 0, 20 * 60 * 60 * 24);
 
             corpseDespawnWhenEmpty = b
-                    .comment("Remove a corpse as soon as the last item is taken from it.")
+                    .comment("最后一件物品被取走后立刻移除尸体")
                     .define("despawnWhenEmpty", true);
 
             corpseFreezeTicks = b
-                    .comment("Ticks a corpse must lie still before its physics stop entirely.",
-                            "A settled body has nothing left to compute, and a world full of",
-                            "old corpses should not each be running a solver.")
+                    .comment("尸体静止多少 tick 后完全停止物理模拟",
+                            "已经停稳的身体没有东西需要计算",
+                            "满地旧尸体不该各自跑着一个求解器")
                     .defineInRange("freezeTicks", 40, 1, 20 * 60);
 
             b.pop();
-            b.comment("Bodies left by mobs, in place of vanilla's toppling death animation.")
+            b.comment("生物死亡后留下的身体，用来替代原版的倒地死亡动画")
                     .push("mobCorpse");
 
             mobCorpseEnabled = b
-                    .comment("Leave a ragdoll behind when a listed mob dies.",
-                            "Drops are untouched: a mob's loot still falls on the floor as usual.")
+                    .comment("列表里的生物死亡时留下一具布娃娃",
+                            "掉落不受影响：生物的战利品照常掉在地上")
                     .define("enabled", true);
 
             mobCorpseLifetimeTicks = b
-                    .comment("How long a mob's body lasts, in ticks. Zero means forever,",
-                            "which is not advised on a busy world.")
+                    .comment("生物尸体存在多少 tick，0 表示永远存在",
+                            "在生物多的地方不建议这么做")
                     .defineInRange("lifetimeTicks", 20 * 30, 0, 20 * 60 * 60);
 
             mobCorpseTypes = b
-                    .comment("Which mobs leave a body.",
-                            "Only mobs drawn with Minecraft's humanoid model work, because the",
-                            "ragdoll is built from the six cuboids that model has. The server",
-                            "cannot see which model a mob uses - that is client side - so the",
-                            "list is explicit. Adding a non humanoid mob leaves an invisible body.")
+                    .comment("哪些生物会留下身体",
+                            "只有用原版人形模型绘制的生物才支持，因为布娃娃",
+                            "是由该模型的六个长方体搭出来的。服务端看不到",
+                            "生物用的是哪个模型，那属于客户端，所以这份列表",
+                            "必须显式写明。加进非人形的生物只会留下一具看不见的身体")
                     .defineList("types", java.util.List.of(
                             "minecraft:zombie",
                             "minecraft:husk",
@@ -409,9 +403,12 @@ public final class CorpseLabConfig {
 
             b.pop();
             b.push("sound");
-            soundEnabled = b.comment("Play a thud when a player goes down.").define("enabled", true);
+            soundEnabled = b.comment("玩家倒地时播放一声闷响").define("enabled", true);
             soundVolume = b.defineInRange("volume", 1.0D, 0.0D, 1.0D);
             b.pop();
+
+            // 通用骨架尸体系统的设置，与上面的服务器设置同存一份文件
+            PlanConfig.define(b);
         }
     }
 
@@ -424,37 +421,35 @@ public final class CorpseLabConfig {
         public final ForgeConfigSpec.DoubleValue cameraRoll;
 
         private Client(ForgeConfigSpec.Builder b) {
-            b.comment("Presentation. Client-only.").push("display");
+            b.comment("表现层，仅客户端").push("display");
 
             showControlsHint = b
-                    .comment("Show the on-screen controls reminder while ragdolled.")
+                    .comment("变成布娃娃时在屏幕上显示操作提示")
                     .define("showControlsHint", true);
 
             firstPersonRagdollCamera = b
-                    .comment("In first person, view the world from the ragdoll's own head.",
-                            "The camera sits in the head and tumbles with it, rather than",
-                            "hovering at standing eye height. Turn off for a fixed view.")
+                    .comment("第一人称时从布娃娃自己的头部看世界",
+                            "相机坐在头里随着它翻滚",
+                            "而不是悬在站立时的眼睛高度。关掉则用固定视角")
                     .define("firstPersonRagdollCamera", true);
 
             hideVanillaDeathAnimation = b
-                    .comment("Hide Minecraft's own death animation once a body is left behind.",
-                            "Vanilla keeps drawing the dead player toppling over, which sits on",
-                            "top of the corpse: two bodies in the same place, one of them tipping",
-                            "through the other. Turn off if corpses are disabled server side.")
+                    .comment("留下身体后隐藏 Minecraft 自带的死亡动画",
+                            "原版会继续画出死掉的玩家倒下去，和尸体叠在一起",
+                            "同一位置出现两具身体，其中一具还穿过另一具",
+                            "如果服务端关掉了尸体，这项也可以关掉")
                     .define("hideVanillaDeathAnimation", true);
 
             cameraSmoothing = b
-                    .comment("How much the ragdoll camera is eased, from 0 (locked rigidly to",
-                            "the head, twitchy) to 1 (very floaty). The head is a small light",
-                            "body at the end of a chain, so some easing is needed to stop every",
-                            "twitch of the solve reaching the screen.")
+                    .comment("布娃娃相机的平滑程度，0 表示硬锁在头上、很抖",
+                            "1 表示非常飘。头部是链末端一个小小的轻质刚体",
+                            "所以需要一些平滑，免得求解的每次抖动都传到屏幕上")
                     .defineInRange("cameraSmoothing", 0.65D, 0.0D, 1.0D);
 
             cameraRoll = b
-                    .comment("How much of the head's roll the camera takes, from 0 to 1.",
-                            "Full roll is accurate and quite unpleasant to look at.")
+                    .comment("相机跟随头部翻滚的程度，从 0 到 1",
+                            "完全跟随虽然准确，但看久了相当晕")
                     .defineInRange("cameraRoll", 0.5D, 0.0D, 1.0D);
-
 
             b.pop();
         }

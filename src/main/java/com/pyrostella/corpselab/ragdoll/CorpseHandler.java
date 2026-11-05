@@ -19,12 +19,12 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Turns a player's death into a body that keeps their things.
+ * 把玩家的死亡变成一具保留其物品的尸体
  *
- * <p>Hooked at death rather than at the drop event on purpose: emptying the inventory
- * before vanilla reaches its dropping code means there is nothing left to scatter, so
- * items land in the corpse instead of on the floor beside it. Keep-inventory is respected
- * - the body is still left behind, but the player keeps what they were carrying.
+ * <p>刻意挂在死亡事件而非掉落事件上：在原版执行掉落逻辑之前
+ * 清空背包，就没有东西可散落，物品会进入尸体而不会
+ * 散在旁边的地上。保留物品栏选项仍然生效，身体照旧留下
+ * 但玩家保住自己携带的东西
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class CorpseHandler {
@@ -44,23 +44,23 @@ public final class CorpseHandler {
             return;
         }
 
-        // A player dying while ragdolled is already lying down; end that first so the
-        // corpse is the only body left. Their own delta movement is useless here, because
-        // vanilla zeroes a passenger's motion every tick - the body they were riding is
-        // what actually carries the speed.
+        // 处于布娃娃状态的玩家死亡时已经躺着，先结束它，让尸体成为
+        // 唯一留下的身体。此时玩家自身的 deltaMovement 无用，因为
+        // 原版每个 tick 都会把乘客的速度清零，真正带着速度的是
+        // 他们骑乘的那具身体
         Vec3 momentum;
         if (player.getVehicle() instanceof RagdollEntity ragdoll && ragdoll.skeleton() != null) {
             Vector3d velocity = ragdoll.skeleton().torso().linVel;
             momentum = new Vec3(velocity.x, velocity.y, velocity.z);
             ragdoll.getUp();
         } else {
-            // Standing still when shot means collapsing where they stand, which is what a
-            // realistic death looks like: gravity does the rest.
+            // 站着中弹意味着在原地倒下，真实的死亡正是这样
+            // 剩下的交给重力
             momentum = player.getDeltaMovement().scale(20.0D);
 
-            // A blast that kills outright never got the chance to knock them down first,
-            // so the body would drop where it stood instead of being thrown. Give it the
-            // launch the explosion trigger would have.
+            // 一击致命的爆炸没机会先把人掀倒，尸体只会
+            // 原地倒下而不是被抛出去，因此补上爆炸触发器
+            // 本应给出的初速度
             Vec3 blast = event.getSource().getSourcePosition();
             if (event.getSource().is(DamageTypeTags.IS_EXPLOSION) && blast != null) {
                 Vec3 away = player.position()
@@ -82,16 +82,16 @@ public final class CorpseHandler {
     }
 
     /**
-     * Humanoid mobs leave a body too, in place of vanilla's toppling animation.
+     * 人形生物也会留下尸体，用来替代原版的倒地动画
      *
-     * <p>Which mobs qualify has to be a configured list: the ragdoll is built from the six
-     * cuboids of Minecraft's humanoid model, and which model a mob uses is a client-side
-     * fact the server cannot see.
+     * <p>哪些生物符合条件必须由配置列表决定：布娃娃由 Minecraft 人形模型的
+     * 六个长方体构建，而生物使用哪种模型属于服务端
+     * 看不到的客户端事实
      */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMobDeath(LivingDeathEvent event) {
-        // 旧系统（Tumble 的 6 部件人形尸体）已由 plan.PlanCorpseHandler 取代。
-        // 两边都监听死亡会生成两份尸体，所以这里整段停用，代码保留备查。
+        // 旧系统（Tumble 的 6 部件人形尸体）已由 plan.PlanCorpseHandler 取代
+        // 两边都监听死亡会生成两份尸体，所以这里整段停用，代码保留备查
         //
         // if (!CorpseLabConfig.SERVER.mobCorpseEnabled.get()) {
         //     return;
@@ -119,8 +119,8 @@ public final class CorpseHandler {
     }
 
     /**
-     * A settled corpse has stopped sending poses, so a player arriving later would see
-     * nothing. Send it once when they start tracking the body.
+     * 已静止的尸体不再发送姿态，后来到达的玩家会什么都看不到
+     * 因此在他们开始跟踪这具身体时补发一次
      */
     @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
@@ -130,7 +130,7 @@ public final class CorpseHandler {
         }
     }
 
-    /** Convenience for other code that wants to know whether a body belongs to someone. */
+    /** 供其他代码判断某具尸体是否属于某人的便捷方法 */
     public static boolean isOwner(CorpseEntity corpse, Player player) {
         return player.getUUID().equals(corpse.getOwnerId());
     }

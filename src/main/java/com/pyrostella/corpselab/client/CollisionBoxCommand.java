@@ -12,7 +12,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * 物理调试视图的开关。
+ * 物理调试视图的开关
  *
  * <pre>
  * /cl 肢体碰撞箱显示          查询当前状态
@@ -20,12 +20,12 @@ import net.minecraftforge.fml.common.Mod;
  * /cl 肢体碰撞箱显示 false    关闭
  * </pre>
  *
- * <p>设置名做成字面量节点：Brigadier 匹配字面量时直接比对输入里的原话，所以中文没问题；
- * 换成 {@code StringArgumentType.string()} 就不行，它落到 {@code readUnquotedString}，
+ * <p>设置名做成字面量节点：Brigadier 匹配字面量时直接比对输入里的原话，所以中文没问题
+ * 换成 {@code StringArgumentType.string()} 就不行，它落到 {@code readUnquotedString}
  * 只认 {@code 0-9A-Za-z_-+.}，中文会被吃成空串。</p>
  *
  * <p>注册成纯客户端命令：Forge 的 {@code ClientCommandHandler} 会在
- * {@code ClientPacketListener.sendCommand} 的第一行截住它，不需要服务器知道这条命令，
+ * {@code ClientPacketListener.sendCommand} 的第一行截住它，不需要服务器知道这条命令
  * 也不吃服务端权限。状态只活在这一局客户端里，不写配置。</p>
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, value = Dist.CLIENT)

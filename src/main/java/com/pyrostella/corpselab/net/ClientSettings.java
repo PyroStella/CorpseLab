@@ -14,12 +14,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * What each player's client has its own settings set to, as far as the server knows.
+ * 服务端所知的、每个玩家客户端自己的设置值
  *
- * <p>Client settings are presentation - the ragdoll camera, the controls hint - and live
- * in a file on that player's machine, so the server cannot read or write them directly.
- * The settings menu still shows them, which means asking the client and caching what comes
- * back. A player who never answers simply sees those rows marked unknown.
+ * <p>客户端设置属于表现层（ragdoll 相机、操作提示），保存在该玩家本机的文件里
+ * 所以服务端无法直接读写，而设置菜单又要显示它们
+ * 这就只能向客户端询问，再把答复缓存起来
+ * 从不回应的玩家看到的那几行就标成未知
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class ClientSettings {
@@ -38,7 +38,7 @@ public final class ClientSettings {
         return REPORTED.getOrDefault(player.getUUID(), Map.of()).get(path);
     }
 
-    /** Records what a client says its settings are, and redraws the menu if one is open. */
+    /** 记下客户端自报的设置值，若菜单正开着就重画一遍 */
     public static void report(ServerPlayer player, Map<String, String> values) {
         REPORTED.put(player.getUUID(), Map.copyOf(values));
         if (player.containerMenu instanceof ConfigMenu menu) {
@@ -46,7 +46,7 @@ public final class ClientSettings {
         }
     }
 
-    /** Asks a client to change one of its own settings, and assumes it will. */
+    /** 让客户端改它自己的一项设置，并假定它会照做 */
     public static void set(ServerPlayer player, String path, String value) {
         Map<String, String> known = new HashMap<>(REPORTED.getOrDefault(player.getUUID(), Map.of()));
         known.put(path, value);

@@ -5,15 +5,15 @@ import net.minecraft.world.entity.LivingEntity;
 import org.joml.Vector3d;
 
 /**
- * The pose a player's model was actually in at the moment they went down.
+ * 玩家倒下那一刻其模型实际所处的姿态
  *
- * <p>A ragdoll that always starts in a neutral standing pose looks like a different
- * person appearing: mid-sprint the legs are apart and the arms are swung, and snapping
- * those to zero is a visible pop. These are vanilla's own humanoid animation terms,
- * recomputed from data the server already has, so the body starts exactly where the
- * player was drawn.
+ * <p>总是以中立站姿开始的布娃娃，看起来像是换了一个人凭空出现
+ * 疾跑时双腿分开、手臂摆动，把这些角度直接归零
+     * 会有肉眼可见的跳变。这些量都来自原版人形动画
+ * 由服务端已有的数据重新算出，所以身体会从玩家
+ * 被绘制的位置精确开始
  *
- * <p>All angles are in radians, in model space.
+ * <p>所有角度都以弧度为单位，位于模型空间
  */
 public record LimbPose(double headYaw, double headPitch,
                        double rightArmPitch, double leftArmPitch,
@@ -24,11 +24,11 @@ public record LimbPose(double headYaw, double headPitch,
             new LimbPose(0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D, false);
 
     /**
-     * Reproduces the parts of {@code HumanoidModel.setupAnim} that visibly change a
-     * standing player: where they are looking, the walk cycle, and crouching.
+     * 复现 {@code HumanoidModel.setupAnim} 中会明显改变站立玩家的部分
+     * 包括视线方向、行走循环和下蹲
      */
     public static LimbPose of(LivingEntity entity) {
-        // The walk cycle vanilla drives the limbs with.
+        // 原版用来驱动四肢的行走循环
         float limbSwing = entity.walkAnimation.position();
         float limbSwingAmount = entity.walkAnimation.speed();
 
@@ -52,7 +52,7 @@ public record LimbPose(double headYaw, double headPitch,
                 bodyPitch, crouching);
     }
 
-    /** Model-space X rotation for a part. */
+    /** 部件在模型空间中的 X 轴旋转 */
     public double xRot(BodyPart part) {
         return switch (part) {
             case HEAD -> headPitch;
@@ -64,14 +64,14 @@ public record LimbPose(double headYaw, double headPitch,
         };
     }
 
-    /** Model-space Y rotation for a part. Only the head turns. */
+    /** 部件在模型空间中的 Y 轴旋转，只有头会转向 */
     public double yRot(BodyPart part) {
         return part == BodyPart.HEAD ? headYaw : 0.0D;
     }
 
     /**
-     * Crouching does not only rotate: vanilla also slides the head, body and legs, which
-     * is why a sneaking player is shorter rather than merely tilted.
+     * 下蹲不只是旋转：原版还会平移头部、躯干和腿，这就是潜行玩家
+     * 变矮而不只是倾斜的原因
      */
     public Vector3d pivotShift(BodyPart part) {
         if (!crouching) {

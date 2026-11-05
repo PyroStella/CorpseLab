@@ -4,11 +4,11 @@ import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
 /**
- * Shared XPBD primitives.
+ * 公用的 XPBD 基础运算
  *
- * <p>Implements the substepped rigid-body formulation from Müller, Macklin, Chentanez,
- * Jeschke and Kim, "Detailed Rigid Body Simulation with Extended Position Based Dynamics"
- * (2020). Both routines below are the paper's, expressed in Java.
+ * <p>实现 Müller、Macklin、Chentanez、Jeschke 和 Kim 在 "Detailed
+ * Rigid Body Simulation with Extended Position Based Dynamics"（2020）
+ * 中给出的子步化刚体公式。下面两个例程都出自那篇论文，只是改用 Java 表达
  */
 public final class XpbdMath {
 
@@ -16,14 +16,14 @@ public final class XpbdMath {
     }
 
     /**
-     * Eliminates {@code corr} between two bodies, splitting the correction by generalised
-     * inverse mass.
+     * 在两个刚体之间消解 {@code corr}，按广义逆质量
+     * 分摊修正量
      *
-     * <p>Either body may be null (treated as immovable). A null world point means the
-     * correction is purely angular.
+     * <p>任一刚体都可以为 null（视为不可移动）。世界坐标点传 null
+     * 表示这是一次纯角度修正
      *
-     * @param compliance inverse stiffness; 0 is perfectly rigid
-     * @return the Lagrange multiplier applied, which callers use as the impulse magnitude
+     * @param compliance 逆刚度；0 表示完全刚性
+     * @return 实际施加的拉格朗日乘子，调用方把它当作冲量大小
      */
     public static double applyPairCorrection(RigidBody a, Vector3d pointA,
                                              RigidBody b, Vector3d pointB,
@@ -56,11 +56,11 @@ public final class XpbdMath {
     }
 
     /**
-     * Constrains the signed angle from {@code a} to {@code b} about axis {@code n} to
-     * [{@code minAngle}, {@code maxAngle}] radians. This is the primitive behind every
-     * joint limit; a swing cone and a twist range are each one call.
+     * 把 {@code a} 绕轴 {@code n} 转到 {@code b} 的有符号夹角限制在
+     * [{@code minAngle}, {@code maxAngle}] 弧度之内。所有关节限位背后的
+     * 原语都是它；摆动锥和扭转范围各自只是一次调用
      *
-     * @return true if the limit was violated and a correction was applied
+     * @return 限位被突破并施加了修正时为 true
      */
     public static boolean limitAngle(RigidBody body0, RigidBody body1,
                                      Vector3d n, Vector3d a, Vector3d b,

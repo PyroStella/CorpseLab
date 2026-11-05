@@ -8,7 +8,7 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-/** Asks a client to report its own settings, so the menu can show them. */
+/** 请客户端上报自己的设置，菜单才能把它们显示出来 */
 public final class ClientSettingsRequestPacket {
 
     public ClientSettingsRequestPacket() {

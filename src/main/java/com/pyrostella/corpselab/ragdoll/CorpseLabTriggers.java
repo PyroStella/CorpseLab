@@ -21,16 +21,16 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Everything that knocks a player down without them asking.
+ * 所有不需要玩家主动请求就能把人掀倒的情形
  *
- * <p>All of these route through {@link RagdollController#tumbleFromTrigger}, so the
- * cooldown, the eligibility rules and the suppression list are enforced once rather than
- * repeated per trigger.
+ * <p>这些情形全部经由 {@link RagdollController#tumbleFromTrigger}
+ * 因此冷却、资格规则与抑制列表只在一处执行，不必在每个
+ * 触发器里重复一遍
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class CorpseLabTriggers {
 
-    /** Last reported motion per player, for spotting a sudden stop. */
+    /** 每个玩家上一次上报的运动，用于识别突然的停止 */
     private static final java.util.Map<java.util.UUID, Vec3> LAST_MOTION = new java.util.HashMap<>();
 
     private CorpseLabTriggers() {
@@ -47,11 +47,11 @@ public final class CorpseLabTriggers {
     }
 
     /**
-     * Damage-driven triggers: a hard landing, an elytra crash, or a heavy blow.
+     * 由伤害驱动的触发：重着地、鞘翅撞墙或重击
      *
-     * <p>Hooked at damage rather than at hurt so the numbers are post-armour, which is what
-     * the thresholds are expressed in - being saved by netherite should also save you from
-     * being floored.
+     * <p>挂在伤害事件而不是受伤事件上，取到的是护甲后的
+     * 数值，阈值正是按这个口径设定的：下界合金救下的伤害
+     * 也应该让你免于被掀翻
      */
     @SubscribeEvent
     public static void onDamage(LivingDamageEvent event) {
@@ -64,10 +64,10 @@ public final class CorpseLabTriggers {
         CorpseLabConfig.Server config = CorpseLabConfig.SERVER;
 
         if (source.is(DamageTypes.FALL)) {
-            // Zero means height is the only condition, so damage should not fire at all.
+            // 为零表示只以高度为条件，此时伤害不应触发
             double minDamage = config.fallMinDamage.get();
             if (config.fallEnabled.get() && minDamage > 0.0D && amount >= minDamage) {
-                // Drive the body into the ground with a share of the landing speed.
+                // 用一部分落地速度把身体砸向地面
                 double speed = Math.abs(player.getDeltaMovement().y) * 20.0D;
                 RagdollController.tumbleFromTrigger(player,
                         new Vec3(0.0D, -speed * config.fallSlamMultiplier.get(), 0.0D));
@@ -83,25 +83,25 @@ public final class CorpseLabTriggers {
             return;
         }
 
-        // Explosions are handled at detonation, where the blast geometry is known.
+        // 爆炸在起爆时处理，那时爆炸的几何关系是已知的
         if (source.is(DamageTypes.EXPLOSION) || source.is(DamageTypes.PLAYER_EXPLOSION)) {
             return;
         }
 
         if (config.hitEnabled.get() && amount >= config.hitMinDamage.get()) {
-            // Scaled by the blow itself, so a glancing hit staggers and a crit throws you.
+            // 按打击本身的力度缩放，擦伤只是踉跄，暴击会把人抛出去
             //
-            // Projectiles are scaled far lower. A bullet does a lot of damage while
-            // carrying almost no momentum, so tying its knockback to its damage sends
-            // people flying from something that should drop them where they stand.
+            // 弹射物的缩放系数低得多。子弹伤害很高
+            // 携带的动量却几乎为零，把击退绑在伤害上，会让
+            // 本该原地倒下的人被一枪打飞
             double multiplier = isProjectile(source)
                     ? config.hitProjectileLaunchMultiplier.get()
                     : config.hitLaunchMultiplier.get();
 
-            // Clamped, because scaling by damage alone means a modded weapon doing thirty
-            // damage throws a player at forty five blocks per second. Two of the gun mods
-            // in use define no data-driven damage types at all, so no list of ids can be
-            // complete and the ceiling is what actually guarantees this stays sane.
+            // 做了上限截断，因为只按伤害缩放时，一把打出三十点伤害的模组武器
+            // 会把玩家以每秒四十五格的速度抛出。在用的枪械模组中有两个
+            // 完全没有定义数据驱动的伤害类型，任何 id 列表都不可能
+            // 完整，真正保证数值不失控的是这个上限
             double speed = Math.min(multiplier * amount, config.hitMaxLaunchSpeed.get());
 
             RagdollController.tumbleFromTrigger(player, awayFrom(source, player).scale(speed));
@@ -109,11 +109,11 @@ public final class CorpseLabTriggers {
     }
 
     /**
-     * Impact detection, fed by client motion samples.
+     * 撞击检测，由客户端上报的运动采样驱动
      *
-     * <p>An impact is a sudden loss of speed, so it takes two samples: the tick before and
-     * the tick of the stop. The body is then thrown along the direction it was already
-     * travelling, which crumples it into whatever it hit rather than bouncing it back.
+     * <p>撞击就是速度的突然损失，所以需要两次采样：停止前的那个 tick 和
+     * 停止的那个 tick。随后身体沿它原本前进的方向被抛出
+     * 于是会撞进所碰到的东西里，而不是被弹回来
      */
     public static void onMotionSample(ServerPlayer player, Vec3 motion) {
         CorpseLabConfig.Server config = CorpseLabConfig.SERVER;
@@ -140,16 +140,16 @@ public final class CorpseLabTriggers {
     }
 
     /**
-     * Blast knockdown, driven by geometry rather than by damage.
+     * 爆炸掀翻，由几何关系而不是伤害驱动
      *
-     * <p>Reading explosion damage does not work. A creative player takes none at all, so
-     * nothing ever fired while testing in creative; and TNT damage falls away so sharply
-     * that only a player standing inside the charge cleared any sensible threshold. Reach
-     * and force come from the blast's own radius instead, which is what makes a nearby
-     * explosion throw you rather than having to be swallowed by it.
+     * <p>读取爆炸伤害行不通。创造模式玩家完全不受伤害，所以在创造模式里
+     * 测试时它从不触发；TNT 的伤害衰减又极快，只有站在炸药
+     * 里面的玩家才能超过任何一个合理的阈值
+     * 因此作用范围与力度改为来自爆炸自身的半径，这样附近的爆炸
+     * 就能把人抛出，而不必被爆炸吞没
      *
-     * <p>Vanilla itself affects entities out to twice the radius, so that is the reach
-     * used here, plus a configurable margin.
+     * <p>原版自身对两倍半径内的实体生效，因此这里采用该距离
+     * 再加上一段可配置的余量
      */
     @SubscribeEvent
     public static void onExplosion(ExplosionEvent.Detonate event) {
@@ -167,7 +167,7 @@ public final class CorpseLabTriggers {
         double reach = power * 2.0D + config.explosionRadiusPadding.get();
 
         for (Entity entity : event.getAffectedEntities()) {
-            // A body lying in a blast should be thrown by it, the same as a living one.
+            // 躺在爆炸里的尸体也应该被炸飞，和活着的身体一样
             if (entity instanceof CorpseEntity corpse) {
                 Vec3 offset = corpse.position().subtract(centre);
                 double distance = offset.length();
@@ -183,8 +183,8 @@ public final class CorpseLabTriggers {
                 continue;
             }
 
-            // Measured from the chest, so a blast at foot level still throws you upward
-            // and outward rather than purely sideways.
+            // 从胸部位置开始测量，这样脚边的爆炸仍会把人向上
+            // 并向外抛出，而不是纯粹横向推开
             Vec3 offset = player.position()
                     .add(0.0D, player.getBbHeight() * 0.5D, 0.0D)
                     .subtract(centre);
@@ -206,16 +206,16 @@ public final class CorpseLabTriggers {
     }
 
     /**
-     * The other half of the hard landing: how far they fell, regardless of what it cost
-     * them.
+     * 重着地的另一半：不管为此付出了多少代价
+     * 只去看他下落了多高
      *
-     * <p>Damage alone is a poor proxy for a heavy landing. Armour, feather falling and
-     * resistance all cut it, so a player can drop thirty blocks and take four points.
-     * This fires on the distance itself, and the two conditions are independent - either
-     * one is enough, and either can be switched off by setting its threshold to zero.
+     * <p>单看伤害无法很好地代表重着地。护甲、摔落缓冲和抗性都会削减它
+     * 玩家可以掉三十格只受四点伤害。这里直接以下落距离为准
+     * 两个条件彼此独立：满足任一个即可，把任一个的阈值设为零
+     * 就能关掉它
      *
-     * <p>Landing in water never reaches here at all: vanilla clears fall distance on
-     * entering the fluid, so the event does not fire.
+     * <p>落入水中根本不会走到这里：原版在进入流体时清空坠落距离
+     * 所以该事件不会触发
      */
     @SubscribeEvent
     public static void onFall(LivingFallEvent event) {
@@ -251,13 +251,13 @@ public final class CorpseLabTriggers {
     }
 
     /**
-     * Whether a blow should be treated as a bullet or arrow rather than a shove.
+     * 一次打击应当按子弹或箭处理，而不是按推搡处理
      *
-     * <p>The vanilla tag alone is not enough. Gun mods register their own damage types and
-     * generally do not join minecraft:is_projectile - TACZ declares tacz:bullets and
-     * Superb Warfare declares superbwarfare:gun_damage, and neither appears in the vanilla
-     * tag - so the extra ids are configurable, and each is tried both as a damage type and
-     * as a tag.
+     * <p>仅靠原版标签不够：枪械模组会注册自己的伤害类型
+     * 通常也不加入 minecraft:is_projectile——TACZ 声明 tacz:bullets
+     * Superb Warfare 声明 superbwarfare:gun_damage，两者都不在原版标签里
+     * 因此额外的 id 可以配置，每个 id 会先按伤害类型
+     * 再按标签各匹配一次
      */
     private static boolean isProjectile(DamageSource source) {
         if (source.is(DamageTypeTags.IS_PROJECTILE)) {
@@ -280,8 +280,8 @@ public final class CorpseLabTriggers {
     }
 
     /**
-     * Direction to throw someone hit by {@code source}. Falls back to straight up, so a
-     * blow from an unknown origin still reads as a knockdown rather than doing nothing.
+     * 被 {@code source} 击中时抛出的方向。找不到来源时退化为竖直向上
+     * 这样来路不明的一击仍然表现为被掀倒，而不是毫无反应
      */
     private static Vec3 awayFrom(DamageSource source, ServerPlayer player) {
         Vec3 origin = source.getSourcePosition();
@@ -292,7 +292,7 @@ public final class CorpseLabTriggers {
         if (away.lengthSqr() < 1.0e-6D) {
             return new Vec3(0.0D, 1.0D, 0.0D);
         }
-        // Bias upward, or a hit just skids the body along the floor.
+        // 向上偏一点，否则一次打击只会让身体在地面上滑行
         return away.normalize().add(0.0D, 0.5D, 0.0D).normalize();
     }
 }

@@ -17,19 +17,19 @@ public final class CorpseLabRegistry {
     public static final RegistryObject<EntityType<RagdollEntity>> RAGDOLL =
             ENTITY_TYPES.register("ragdoll", () -> EntityType.Builder
                     .<RagdollEntity>of(RagdollEntity::new, MobCategory.MISC)
-                    // The entity itself is just an anchor; the limbs are drawn from the
-                    // synced pose, so its own box only needs to exist for tracking.
+                    // 实体本身只是一个锚点：四肢按同步过来的姿态绘制
+                    // 所以它自己的碰撞箱只要存在、能被追踪就够了
                     .sized(0.6F, 0.6F)
                     .clientTrackingRange(10)
-                    // Poses change every tick, so the tracker must send every tick.
+                    // 姿态每个 tick 都在变，所以追踪器必须每个 tick 都发包
                     .updateInterval(1)
                     .noSummon()
                     .fireImmune()
                     .build("ragdoll"));
 
     /**
-     * A corpse is tracked further out and persists, unlike a living ragdoll: a player
-     * walking back to where they died must be able to see their body before reaching it.
+     * 尸体比活着的布娃娃追踪得更远，而且会持久存在：玩家走回自己
+     * 死亡的地点时，必须在走到之前就能看见自己的尸体
      */
     public static final RegistryObject<EntityType<CorpseEntity>> CORPSE =
             ENTITY_TYPES.register("corpse", () -> EntityType.Builder
@@ -41,7 +41,7 @@ public final class CorpseLabRegistry {
                     .fireImmune()
                     .build("corpse"));
 
-    /** A dead mob's body. Like a player corpse but carrying nothing and on a timer. */
+    /** 死亡生物的尸体。与玩家尸体类似，但身上没有物品，而且有存活计时 */
     public static final RegistryObject<EntityType<MobCorpseEntity>> MOB_CORPSE =
             ENTITY_TYPES.register("mob_corpse", () -> EntityType.Builder
                     .<MobCorpseEntity>of(MobCorpseEntity::new, MobCategory.MISC)
@@ -53,8 +53,8 @@ public final class CorpseLabRegistry {
                     .build("mob_corpse"));
 
     /**
-     * 通用骨架驱动的尸体：部件数量与拓扑来自客户端上报的 BodyPlan，
-     * 原版模型与 geo 模型共用同一个实体。
+     * 通用骨架驱动的尸体：部件数量与拓扑来自客户端上报的 BodyPlan
+     * 原版模型与 geo 模型共用同一个实体
      */
     public static final RegistryObject<EntityType<PlanCorpseEntity>> PLAN_CORPSE =
             ENTITY_TYPES.register("plan_corpse", () -> EntityType.Builder

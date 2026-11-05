@@ -26,19 +26,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Draws a dead mob's body using that mob's own model and texture.
+ * 用死亡生物自己的模型和纹理绘制它的身体
  *
- * <p>Rather than shipping a table of models and textures per mob, this asks the game:
- * it borrows the renderer Minecraft already uses for that entity type, and uses its
- * model if that model is a humanoid one. That keeps modded humanoids working for free,
- * and means a resource pack applies to a body exactly as it does to the living mob.
+ * <p>这里不按生物类型维护一张模型与纹理表，而是直接问游戏：借用 Minecraft
+ * 原本就为该实体类型使用的渲染器，如果它的模型是类人模型就直接用那份模型
+ * 这样模组添加的类人生物无需额外适配就能正常工作，资源包作用在尸体上的效果
+ * 也和作用在活着的生物上完全一致
  *
- * <p>Getting a texture out of a renderer needs an instance of the entity, so one
- * throwaway instance per type is created and cached. It is never added to the world.
+ * <p>要从渲染器里取出纹理，需要该实体的一个实例，所以每种类型都会创建一个
+ * 一次性实例并缓存起来。它永远不会被加入世界
  */
 public class MobCorpseRenderer extends EntityRenderer<MobCorpseEntity> {
 
-    /** Baby mobs are drawn at roughly half scale, and their bodies should match. */
+    /** 幼年生物大约按一半大小绘制，它们的尸体也应如此 */
     private static final float BABY_SCALE = 0.5F;
 
     private final Map<EntityType<?>, LivingEntity> probes = new HashMap<>();
@@ -53,7 +53,7 @@ public class MobCorpseRenderer extends EntityRenderer<MobCorpseEntity> {
         return texture == null ? new ResourceLocation("minecraft", "textures/entity/zombie/zombie.png") : texture;
     }
 
-    /** A throwaway instance of the source mob, used only to interrogate its renderer. */
+    /** 源生物的一次性实例，只用来向它的渲染器询问信息 */
     private LivingEntity probe(MobCorpseEntity entity) {
         EntityType<?> type = entity.sourceType().orElse(null);
         if (type == null || Minecraft.getInstance().level == null) {
@@ -96,8 +96,8 @@ public class MobCorpseRenderer extends EntityRenderer<MobCorpseEntity> {
 
         LivingEntityRenderer<LivingEntity, HumanoidModel<LivingEntity>> renderer = sourceRenderer(entity);
         if (renderer == null) {
-            // Not a humanoid, or the type is unknown. Drawing nothing beats drawing a
-            // zombie in place of whatever actually died.
+            // 不是类人模型，或者类型未知。什么都不画，好过用一只僵尸
+            // 顶替真正死掉的那个生物
             return;
         }
 
@@ -160,12 +160,12 @@ public class MobCorpseRenderer extends EntityRenderer<MobCorpseEntity> {
     }
 
     /**
-     * Cuboid centres for Minecraft's humanoid model, in model pixels.
+     * Minecraft 类人模型各长方体中心的坐标，单位为模型像素
      *
-     * <p>These are the shared humanoid values. A few mobs narrow their limbs - a skeleton's
-     * arms are two pixels wide rather than four - which shifts those centres by half a
-     * pixel. The offset is a thirty-second of a block and is not worth reading each
-     * model's private cube data to correct.
+     * <p>这里用的是类人模型通用的数值。少数生物会把肢体收窄，比如
+     * 骷髅的手臂宽两个像素而不是四个，这会让那些中心偏移半个像素
+     * 这点偏移只有三十二分之一个方块，不值得为此去读每个模型
+     * 私有的立方体数据来修正
      */
     private static Vector3f cuboidCentre(BodyPart part) {
         return switch (part) {

@@ -34,14 +34,14 @@ import net.minecraft.client.model.VillagerModel;
 import net.minecraft.client.model.WolfModel;
 
 /**
- * 原版生物的<strong>骨架拓补表</strong>：哪个部件长在哪个部件上。
+ * 原版生物的<strong>骨架拓补表</strong>：哪个部件长在哪个部件上
  *
- * <p>原版模型树本身不含这个信息：僵尸的腿、牛的腿、鸡的嘴都是根节点的兄弟，
- * 模型自己的 {@code children} 里根本没有"腿属于身体"。只按 children 建关节，
+ * <p>原版模型树本身不含这个信息：僵尸的腿、牛的腿、鸡的嘴都是根节点的兄弟
+ * 模型自己的 {@code children} 里根本没有"腿属于身体"。只按 children 建关节
  * 这些生物的尸体会散成一地互不相连的盒子。</p>
  *
- * <p>这里的手写表参照物理 mod “真实物理” 的 {@code VanillaRagdollHook} 的关节数据整理；
- * 那里的做法是遍历 {@code headParts()}/{@code bodyParts()} 得到固定的 cuboid 序号再连线，
+ * <p>这里的手写表参照物理 mod “真实物理” 的 {@code VanillaRagdollHook} 的关节数据整理
+ * 那里的做法是遍历 {@code headParts()}/{@code bodyParts()} 得到固定的 cuboid 序号再连线
  * 这里换成了部件名——名字来自两处，都是生产环境也稳定的：</p>
  * <ul>
  *   <li>层级模型（蜘蛛、雪傀儡…）直接用 mesh 里 children 的键名；</li>
@@ -49,7 +49,7 @@ import net.minecraft.client.model.WolfModel;
  *       的固定下标给出名字，见各条目的注释。</li>
  * </ul>
  *
- * <p>表里没有的模型（含 mod 新增生物）不会因此散架：先照抄模型树，再按几何关系自动补全。
+ * <p>表里没有的模型（含 mod 新增生物）不会因此散架：先照抄模型树，再按几何关系自动补全
  * 补全规则见 {@link #resolve(Table, List, List)}。</p>
  */
 public final class ModelTopology {
@@ -226,7 +226,7 @@ public final class ModelTopology {
                         bone("left_front_baby_leg", "body"))));
 
         // ---------------------------------------------------------------- 层级模型
-        // 这些模型的部件名来自 mesh 的 children 键，生产环境同样稳定。
+        // 这些模型的部件名来自 mesh 的 children 键，生产环境同样稳定
 
         // 苦力怕：头 + 身体 + 四条腿
         FAMILIES.put(CreeperModel.class, family(
@@ -360,13 +360,13 @@ public final class ModelTopology {
     }
 
     /**
-     * 把三路来源合成最终关节表。
+     * 把三路来源合成最终关节表
      *
-     * <p>顺序：模型树 → 手写拓补表 → 几何补全。一个盒子只有一个父节点，
+     * <p>顺序：模型树 → 手写拓补表 → 几何补全。一个盒子只有一个父节点
      * 先到先得，所以模型树里已经写好的关系不会被表覆盖。</p>
      *
-     * <p>几何补全针对的是表里没写的部件（装饰层、mod 生物）：对所有盒子两两打分，
-     * 重叠体积大的优先，其次枢轴离对方盒子近的优先，用并查集避免成环，
+     * <p>几何补全针对的是表里没写的部件（装饰层、mod 生物）：对所有盒子两两打分
+     * 重叠体积大的优先，其次枢轴离对方盒子近的优先，用并查集避免成环
      * 于是帽子会贴到头上、裤子的贴图层会贴到腿上，而不是各自飘在半空。</p>
      */
     public static List<BodyPlan.Joint> resolve(EntityModel<?> model, List<BodyPlan.Box> boxes,
@@ -433,7 +433,7 @@ public final class ModelTopology {
     }
 
     /**
-     * 给还没有父节点的盒子找父节点：重叠体积 → 枢轴间隙 → 体积大的当父节点。
+     * 给还没有父节点的盒子找父节点：重叠体积 → 枢轴间隙 → 体积大的当父节点
      *
      * <p>已经是别人的父节点的盒子不参与——那多半是躯干，让它回头挂到四肢上会把整棵树掀翻。</p>
      */

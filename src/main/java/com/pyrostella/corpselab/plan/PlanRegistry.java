@@ -8,12 +8,12 @@ import com.pyrostella.corpselab.CorpseLab;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * 服务端缓存：生物类型 → 骨架。
+ * 服务端缓存：生物类型 → 骨架
  *
- * <p>数据由客户端上报（{@code PlanSubmitPacket}）。同类型只保留第一次的结果，
+ * <p>数据由客户端上报（{@code PlanSubmitPacket}）。同类型只保留第一次的结果
  * 防止不同客户端反复覆盖导致姿态漂移。</p>
  *
- * <p class="note">服务端信任客户端发来的尺寸，这是当前的安全缺口：恶意客户端可以上报超大的盒子。
+ * <p class="note">服务端信任客户端发来的尺寸，这是当前的安全缺口：恶意客户端可以上报超大的盒子
  * 后续要按生物命中箱做 clamp，并限制盒子上限。</p>
  */
 public final class PlanRegistry {

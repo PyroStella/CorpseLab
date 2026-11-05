@@ -24,13 +24,13 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * 调试视图：把物理求解器里真正在用的盒子画成线框。
+ * 调试视图：把物理求解器里真正在用的盒子画成线框
  *
  * <p>抽搐这种问题，看不出"谁推谁"就只能猜，所以这里照着解算器读的同一份数据画：每个刚体
  * 一个绿框，自碰撞的球用青色画成三个正交大圆。盒子尺寸、朝向、球的位置全部取自服务端
  * 同步下来的位姿，和渲染出来的模型是同一个变换，所以框和模型应当严丝合缝。</p>
  *
- * <p>用的是原版 {@code RenderType.lines()} 加 {@link LevelRenderer#renderLineBox}，
+ * <p>用的是原版 {@code RenderType.lines()} 加 {@link LevelRenderer#renderLineBox}
  * 也就是 F3+B 碰撞箱那条路径：顶点格式、法线、批次刷新都交给原版，不自己拼。</p>
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, value = Dist.CLIENT)

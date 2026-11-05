@@ -9,7 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
-/** 客户端收包入口：只做"找到实体、把数据塞进去"，不含渲染逻辑。 */
+/** 客户端收包入口：只做"找到实体、把数据塞进去"，不含渲染逻辑 */
 public final class PlanCorpseClientHandler {
 
     private PlanCorpseClientHandler() {

@@ -9,10 +9,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.util.List;
 
 /**
- * The only bridge between the solver and Minecraft's world.
+ * 求解器与 Minecraft 世界之间唯一的桥梁
  *
- * <p>Uses the level's own collision shapes, so slabs, stairs, fences and modded blocks
- * are all handled without knowing anything about them.
+ * <p>使用 level 自身的碰撞形状，因此半砖、楼梯、栅栏以及模组方块
+ * 都在无需了解它们任何细节的情况下被处理
  */
 public final class LevelCollider implements WorldCollider {
 

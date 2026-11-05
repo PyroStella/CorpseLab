@@ -4,29 +4,29 @@ import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
 /**
- * Vanilla's humanoid model geometry, and the conversion from it into world space.
+ * 原版人形模型的几何结构，以及由它到世界空间的换算
  *
- * <p>Everything here is derived from the model rather than eyeballed, because eyeballing
- * it got left and right the wrong way round. Vanilla draws a humanoid as
- * {@code rotateY(180 - yaw)}, then {@code scale(-1, -1, 1)}, then a lift of 1.5 blocks.
- * That scale is not a mirror - it is a 180 degree rotation about Z - so a right arm at
- * model x = -5 belongs at world +0.3125, not -0.3125.
+ * <p>这里的一切都从模型推导而来，而非目测：当初目测把左右搞反了
+ * 原版绘制人形的方式是 {@code rotateY(180 - yaw)}，再接着是
+ * {@code scale(-1, -1, 1)}，最后抬升 1.5 格。那个缩放并不是镜像
+ * 而是绕 Z 轴旋转 180 度，所以模型 x = -5 的右臂应位于世界坐标
+ * +0.3125，而不是 -0.3125
  *
- * <p>Because the flip is a rotation, converting a model-space rotation into a body-space
- * one is a conjugation by it, which negates the X and Y components and leaves Z alone.
+ * <p>因为翻转是一次旋转，把模型空间中的旋转换算到身体空间就是
+ * 与它做一次共轭，结果是 X 和 Y 分量取反，Z 保持不变
  */
 public final class HumanoidGeometry {
 
-    /** Model pixels per block. */
+    /** 每格的模型像素数 */
     private static final double PIXEL = 1.0D / 16.0D;
 
-    /** The model origin sits this far above the feet. */
+    /** 模型原点位于脚部上方此高度处 */
     private static final double LIFT = 1.5D;
 
     private HumanoidGeometry() {
     }
 
-    /** Where a part's pivot sits, in model pixels relative to the model origin. */
+    /** 部件的枢轴位置，单位为相对模型原点的模型像素 */
     public static Vector3d pivot(BodyPart part) {
         return switch (part) {
             case HEAD, TORSO -> new Vector3d(0.0D, 0.0D, 0.0D);
@@ -37,7 +37,7 @@ public final class HumanoidGeometry {
         };
     }
 
-    /** Centre of a part's cuboid, in model pixels relative to that part's own pivot. */
+    /** 部件长方体的中心，单位为相对该部件自身枢轴的模型像素 */
     public static Vector3d cubeCentre(BodyPart part) {
         return switch (part) {
             case HEAD -> new Vector3d(0.0D, -4.0D, 0.0D);
@@ -49,9 +49,9 @@ public final class HumanoidGeometry {
     }
 
     /**
-     * The model point where a part attaches to its parent: the neck for a head, the
-     * shoulder for an arm, the hip for a leg. Expressed relative to the model origin,
-     * which is also the torso's pivot.
+     * 部件连接到父部件处的模型坐标点：头是脖子，手臂是肩
+     * 腿是胯。以模型原点为基准表示，模型原点同时也是
+     * 躯干的枢轴
      */
     public static Vector3d attachment(BodyPart part) {
         return switch (part) {
@@ -62,37 +62,37 @@ public final class HumanoidGeometry {
     }
 
     /**
-     * Converts a model-space point, in pixels relative to the model origin, into an offset
-     * from the figure's feet before the body's own yaw is applied.
+     * 把模型空间中的点（单位为相对模型原点的像素）换算成
+     * 相对于人物脚部的偏移，此时尚未应用身体自身的 yaw
      */
     public static Vector3d toBodySpace(Vector3d modelPixels, Vector3d dest) {
         return dest.set(-modelPixels.x * PIXEL, -modelPixels.y * PIXEL + LIFT, modelPixels.z * PIXEL);
     }
 
     /**
-     * Rotation of a part in body space, given its model-space rotation.
+     * 由部件在模型空间中的旋转求它在身体空间中的旋转
      *
-     * <p>Vanilla applies model rotations as Z, then Y, then X. Conjugating that by the
-     * flip negates X and Y and leaves Z, which is why the signs below are not a mistake.
+     * <p>原版按 Z、Y、X 的顺序应用模型旋转。用翻转对它做共轭
+     * 会使 X 和 Y 取反、Z 不变，所以下面的符号并不是笔误
      */
     public static Quaterniond toBodySpace(double xRot, double yRot, double zRot, Quaterniond dest) {
         return dest.identity().rotateZ(zRot).rotateY(-yRot).rotateX(-xRot);
     }
 
     /**
-     * Offset from the feet to a part's cuboid centre, for the given pose, before body yaw.
+     * 给定姿态下从脚部到部件长方体中心的偏移，尚未应用身体 yaw
      */
     public static Vector3d restOffset(BodyPart part, LimbPose pose, Vector3d dest) {
         Vector3d centre = new Vector3d(cubeCentre(part));
 
-        // The cube swings about its own pivot, so rotate before translating.
+        // 长方体绕自身枢轴摆动，所以先旋转再平移
         modelRotation(part, pose).transform(centre);
         centre.add(pivot(part)).add(pose.pivotShift(part));
 
         return toBodySpace(centre, dest);
     }
 
-    /** A part's rotation in model space, from the pose. */
+    /** 由姿态得到部件在模型空间中的旋转 */
     public static Quaterniond modelRotation(BodyPart part, LimbPose pose) {
         return new Quaterniond()
                 .rotateZ(0.0D)
@@ -100,16 +100,16 @@ public final class HumanoidGeometry {
                 .rotateX(pose.xRot(part));
     }
 
-    /** A part's orientation in body space, from the pose. */
+    /** 由姿态得到部件在身体空间中的朝向 */
     public static Quaterniond bodyRotation(BodyPart part, LimbPose pose, Quaterniond dest) {
         return toBodySpace(pose.xRot(part), pose.yRot(part), 0.0D, dest);
     }
 
     /**
-     * A model-space point expressed in a part's own local frame, which is what a joint
-     * anchor needs. Independent of the part's rotation, since both move together.
+     * 把模型空间中的点表示为部件自身的局部坐标，关节锚点正需要这种形式
+     * 它与部件自身的旋转无关，因为两者始终一起运动
      *
-     * @param modelPoint point in model pixels, relative to the model origin
+     * @param modelPoint 模型像素下的点，相对模型原点
      */
     public static Vector3d anchorIn(BodyPart part, Vector3d modelPoint, LimbPose pose, Vector3d dest) {
         Vector3d relative = new Vector3d(modelPoint)
@@ -117,7 +117,7 @@ public final class HumanoidGeometry {
                 .sub(pose.pivotShift(part))
                 .sub(cubeCentre(part));
 
-        // Undo the part's own model rotation, then flip into the part's local frame.
+        // 先撤销部件自身的模型旋转，再翻转到部件的局部坐标系
         modelRotation(part, pose).transformInverse(relative);
         return dest.set(-relative.x * PIXEL, -relative.y * PIXEL, relative.z * PIXEL);
     }

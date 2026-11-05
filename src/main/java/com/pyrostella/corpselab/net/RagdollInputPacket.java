@@ -8,14 +8,14 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 /**
- * Movement input from a downed player, for rolling.
+ * 倒地玩家传来的移动输入，用于翻滚
  *
- * <p>Vanilla only forwards rider input for a vehicle that names a controlling passenger,
- * and declaring one would also let the client push the vehicle around with
- * ServerboundMoveVehiclePacket. This mod is server-authoritative about where a body is,
- * so it carries its own input instead and keeps the client out of the physics.
+ * <p>原版只会为指定了控制乘客的载具转发乘客输入，而一旦声明控制乘客
+ * 客户端也就获得了用 ServerboundMoveVehiclePacket 推动载具的能力
+ * 本模组对身体的位置是服务端权威，所以自己带着输入走
+ * 把客户端挡在物理之外
  *
- * <p>Only sent on ticks where there is actually input, so an idle ragdoll costs nothing.
+ * <p>只在真正有输入的那些 tick 才发送，空闲躺着的 ragdoll 不产生开销
  */
 public final class RagdollInputPacket {
 
@@ -42,7 +42,7 @@ public final class RagdollInputPacket {
         ctx.enqueueWork(() -> {
             ServerPlayer player = ctx.getSender();
             if (player != null && player.getVehicle() instanceof RagdollEntity ragdoll) {
-                // Clamped, because the value arrives from the client.
+                // 夹紧范围，因为这个值是从客户端来的
                 ragdoll.setRollInput(
                         Math.max(-1.0F, Math.min(1.0F, strafe)),
                         Math.max(-1.0F, Math.min(1.0F, forward)));

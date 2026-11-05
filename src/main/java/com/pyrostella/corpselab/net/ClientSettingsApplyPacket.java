@@ -9,8 +9,8 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 /**
- * Tells a client to change one of its own settings, because its player asked for it in
- * the menu. Only ever names a client-side setting; the receiving end checks that.
+ * 让客户端修改它自己的一项设置，因为玩家在菜单里点了它
+ * 只会指向客户端设置，接收端还会自行校验
  */
 public final class ClientSettingsApplyPacket {
 

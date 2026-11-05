@@ -1,24 +1,24 @@
 package com.pyrostella.corpselab.ragdoll;
 
 /**
- * The six parts of a ragdoll, one per cuboid of the vanilla player model.
+ * 布娃娃的六个部件，与原版玩家模型的每个长方体一一对应
  *
- * <p>Six is the right number rather than a simplification: a vanilla arm is a single
- * cuboid with no elbow, so splitting it would produce bodies with nothing to draw.
- * One body per renderable part makes rendering a direct mapping.
+ * <p>取六是正确做法而非简化：原版手臂是一整块没有肘部的长方体
+ * 所以拆开只会得到无物可画的身体，每个可渲染部件对应一个刚体
+ * 渲染因此成为直接映射
  *
- * <p>Sizes are the model's pixels converted to blocks at 16 pixels per block.
+ * <p>尺寸由模型像素按每格 16 像素换算为格
  */
 public enum BodyPart {
 
-    /** 8x8x8 pixels. */
+    /** 8x8x8 像素 */
     HEAD(0.25D, 0.25D, 0.25D, 5.0D),
-    /** 8x12x4 pixels. */
+    /** 8x12x4 像素 */
     TORSO(0.25D, 0.375D, 0.125D, 30.0D),
-    /** 4x12x4 pixels. */
+    /** 4x12x4 像素 */
     ARM_LEFT(0.125D, 0.375D, 0.125D, 4.0D),
     ARM_RIGHT(0.125D, 0.375D, 0.125D, 4.0D),
-    /** 4x12x4 pixels. */
+    /** 4x12x4 像素 */
     LEG_LEFT(0.125D, 0.375D, 0.125D, 10.0D),
     LEG_RIGHT(0.125D, 0.375D, 0.125D, 10.0D);
 

@@ -7,10 +7,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 
 /**
- * Saves and restores the pose a body settled in.
+ * 保存并恢复一具身体停稳时摆出的姿态
  *
- * <p>Without this a reloaded body stands back up, because a fresh skeleton is always
- * built in the rest stance.
+ * <p>没有它的话，重新加载的身体会站起来，因为新建的骨架总是
+ * 按休息姿态构建的
  */
 public final class BodyPose {
 

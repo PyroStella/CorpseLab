@@ -3,7 +3,6 @@ package com.pyrostella.corpselab;
 import com.mojang.logging.LogUtils;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
-import com.pyrostella.corpselab.plan.PlanConfig;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -21,15 +20,10 @@ public class CorpseLab {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         ModLoadingContext ctx = ModLoadingContext.get();
 
-        // Both specs must be registered. Registering only some of them leaves the others
-        // permanently unloaded, and the first read throws "Cannot get config value before
-        // config is loaded" on every tick. See MEMORY.md.
+        // 两份 spec 都必须注册，漏掉哪一份，那份里的配置就永远处于未加载状态，第一次读取时每个 tick 都会抛出 "Cannot get config value
+        // 服务器设置与通用骨架尸体系统的设置同存一份文件，客户端设置单独一份
         ctx.registerConfig(ModConfig.Type.SERVER, CorpseLabConfig.SERVER_SPEC);
         ctx.registerConfig(ModConfig.Type.CLIENT, CorpseLabConfig.CLIENT_SPEC);
-        // 通用骨架尸体系统自己的配置（形态：铰接 / 自由）
-        // 必须指定独立文件名：Forge 默认按 <modid>-<type>.toml 命名，会和上面那份 SERVER 配置撞名
-        ctx.registerConfig(ModConfig.Type.SERVER, PlanConfig.SPEC,
-                "corpselab-plan-server.toml");
 
         CorpseLabRegistry.ENTITY_TYPES.register(modBus);
         CorpseLabNetwork.register();

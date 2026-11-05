@@ -12,16 +12,16 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * States in which a player must never be knocked down automatically.
+ * 玩家绝不应被自动掀倒的若干状态
  *
- * <p>This list is the least obvious and most important part of the trigger system. A
- * slime block launch, a riptide trident and an elytra takeoff all look exactly like a
- * violent impact to the physics, so without these checks the mod puts the player on the
- * floor every time they do something the game intends. Suppression applies only to
- * automatic triggers - a player asking to go down with the keybind always may.
+ * <p>这份列表是触发系统里最不显眼也最重要的部分。黏液块弹射、激流三叉戟
+ * 和鞘翅起飞在物理上看起来与猛烈撞击完全一样，若没有这些检查
+ * 玩家每次做游戏本就允许的动作都会被按到地上
+ * 抑制只对自动触发生效：用按键主动要求倒下的玩家
+ * 永远都可以
  *
- * <p>Each state also leaves a grace period behind it, because the dangerous moment is
- * usually just after: the bounce, not the block.
+ * <p>每个状态还会留下一段宽限期，因为危险的时刻通常在其之后
+ * 是弹起的那一刻，而不是方块本身
  */
 public final class Suppressions {
 
@@ -30,7 +30,7 @@ public final class Suppressions {
     private Suppressions() {
     }
 
-    /** Called every server tick for each player, to maintain the grace countdown. */
+    /** 每个服务端 tick 对每个玩家调用一次，用于维护宽限期倒计时 */
     public static void tick(ServerPlayer player) {
         if (inSuppressedState(player)) {
             GRACE.put(player.getUUID(), CorpseLabConfig.SERVER.suppressionGraceTicks.get());
@@ -77,12 +77,12 @@ public final class Suppressions {
     }
 
     /**
-     * A water clutch is the case this exists for: falling a long way into a pool does no
-     * damage in vanilla, but hitting the surface is a very large change in speed, which
-     * is precisely what the impact trigger is watching for.
+     * 落水刹停正是这个方法存在的理由：原版中长距离坠入水池不会受伤
+     * 但撞上水面是极大的速度变化，而这恰恰是撞击触发器
+     * 在盯的东西
      *
-     * <p>The block is checked as well as the entity flag, because the flag only turns on
-     * once the player is properly in the fluid and the impact registers on the way in.
+     * <p>除了实体标志位之外还会检查方块，因为标志位要等玩家真正
+     * 进入流体之后才亮起，而撞击是在入水途中判定的
      */
     private static boolean inWater(ServerPlayer player) {
         if (player.isInWater()) {
@@ -93,9 +93,9 @@ public final class Suppressions {
     }
 
     /**
-     * A slime block cancels fall damage but produces a huge velocity reversal, which is
-     * exactly what the impact trigger looks for. Catching it at the block is what stops a
-     * bounce from reading as a crash.
+     * 黏液块会取消坠落伤害，却产生巨大的速度反向，这正是撞击触发器
+     * 要找的东西。在方块这一层拦住它，才能避免一次弹跳
+     * 被当成坠毁
      */
     private static boolean onBouncyBlock(ServerPlayer player) {
         BlockState below = player.getBlockStateOn();

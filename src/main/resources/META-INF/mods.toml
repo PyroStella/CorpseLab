@@ -1,5 +1,5 @@
 # Forge 模组描述文件（TOML v0.5.0）
-# 花括号占位符由 build.gradle 的 processResources 用 gradle.properties 的值展开。
+# 花括号占位符由 build.gradle 的 processResources 用 gradle.properties 的值展开
 
 # 模组加载器类型，普通 @Mod 模组固定为 javafml
 modLoader="javafml" # 必填

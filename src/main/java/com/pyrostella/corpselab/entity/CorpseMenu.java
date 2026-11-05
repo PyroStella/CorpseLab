@@ -7,11 +7,11 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraftforge.network.NetworkHooks;
 
 /**
- * Opens a corpse using Minecraft's own chest screen.
+ * 用 Minecraft 自带的箱子界面打开尸体
  *
- * <p>A player's belongings fit inside five rows, so there is no reason to ship a custom
- * menu and screen for this: vanilla's already handles slot syncing, shift-clicking and
- * the client GUI, and it is the interaction players already know.
+ * <p>玩家的物品装得进五行，所以没有理由为此单独提供自定义菜单
+ * 和界面：原版已经处理了槽位同步、shift 点击以及客户端 GUI
+ * 而且这是玩家本来就熟悉的交互方式
  */
 public final class CorpseMenu {
 

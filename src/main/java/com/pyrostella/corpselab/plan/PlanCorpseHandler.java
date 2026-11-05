@@ -17,7 +17,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
 
 /**
- * 死亡钩子：生物死亡时，如果服务端有这个类型的骨架，就生成一具通用尸体。
+ * 死亡钩子：生物死亡时，如果服务端有这个类型的骨架，就生成一具通用尸体
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class PlanCorpseHandler {

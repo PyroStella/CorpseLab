@@ -10,14 +10,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The physics core has no Minecraft dependency, so it is verified here rather than by
- * relaunching the game. Everything below runs in milliseconds.
+ * 物理核心不依赖 Minecraft，所以验证放在这里，不必重启游戏
+ * 每个用例都在毫秒级完成
  */
 class PhysicsCoreTest {
 
     private static final double TICK = 1.0D / 20.0D;
 
-    /** A floor occupying y in [-1, 0], wide enough that nothing runs off the edge. */
+    /** 占据 y 区间 [-1, 0] 的地板，够宽，不会有东西从边上跑掉 */
     private static final Aabb FLOOR = new Aabb(-64.0D, -1.0D, -64.0D, 64.0D, 0.0D, 64.0D);
 
     private static WorldCollider floor() {
@@ -73,8 +73,8 @@ class PhysicsCoreTest {
     void bodyLaunchedAtMaxSpeedDoesNotTunnelThroughTheFloor() {
         PhysicsWorld world = worldWithFloor();
         RigidBody body = box(world, 0.25D, 10.0D, 0.0D, 20.0D, 0.0D);
-        // 128 blocks/s is the configured launch cap: 6.4 blocks of travel in a single tick,
-        // far more than the one-block floor is thick.
+        // 128 格每秒是配置的发射速度上限：单个 tick 走 6.4 格，远远
+        // 超过一格厚的地板
         body.linVel.set(0.0D, -128.0D, 0.0D);
 
         run(world, 100);
@@ -97,7 +97,7 @@ class PhysicsCoreTest {
         hanging.pos.set(0.0D, 3.25D, 0.0D);
         world.bodies.add(hanging);
 
-        // The joint frame's X axis is the bone direction, so point it down the limb.
+        // 关节坐标系的 X 轴就是骨骼方向，所以让它指向肢体下方
         Quaterniond down = new Quaterniond().rotateZ(Math.toRadians(-90.0D));
 
         SphericalJoint joint = new SphericalJoint(
@@ -106,7 +106,7 @@ class PhysicsCoreTest {
         joint.limits(60.0D, -30.0D, 30.0D);
         world.constraints.add(joint);
 
-        // Kick it sideways so the joint is actually loaded, not just hanging straight.
+        // 往侧向踹一脚，让关节真正受力，而不是单纯竖直悬挂
         hanging.linVel.set(6.0D, 0.0D, 2.0D);
 
         double peakGap = 0.0D;
@@ -125,14 +125,14 @@ class PhysicsCoreTest {
 
         assertFinite(hanging);
 
-        // Steady state is what decides whether limbs look attached. Measured 0.0011 blocks,
-        // which is under a fiftieth of a pixel; this bar is a regression guard on that,
-        // not a visual requirement.
+        // 决定四肢看起来连不连得住的是稳态：实测 0.0011 格，还不到
+        // 一个像素的五十分之一，这个阈值是为此设的回归防线，而不是
+        // 视觉上的硬要求
         assertTrue(steadyGap < 2.0e-3D, "joint drifted to " + steadyGap + " blocks in steady state");
 
-        // The position solve is linearised, so the tick that first loads the joint against
-        // its swing limit overshoots briefly. Measured peak is ~0.01 blocks. A Minecraft
-        // pixel is 1/16 of a block, so the bar is that even the spike stays sub-pixel.
+        // 位置求解是线性化的，所以关节第一次顶到摆动限位的那一 tick 会
+        // 短暂过冲，实测峰值约 0.01 格。Minecraft 一个像素是 1/16 格
+        // 所以阈值定成连这个尖峰也保持在亚像素级别
         assertTrue(peakGap < 1.0D / 16.0D, "joint separated visibly, peak was " + peakGap + " blocks");
     }
 
@@ -156,7 +156,7 @@ class PhysicsCoreTest {
         joint.limits(45.0D, -30.0D, 30.0D);
         world.constraints.add(joint);
 
-        // Hard enough to slam the limb against its limit and hold it there.
+        // 力度足够大，把肢体狠狠顶到限位上并压住
         limb.linVel.set(40.0D, 0.0D, 0.0D);
         limb.angVel.set(0.0D, 0.0D, -30.0D);
 
@@ -171,7 +171,7 @@ class PhysicsCoreTest {
         }
 
         assertFinite(limb);
-        // A little overshoot is expected: the limit is a soft constraint solved per substep.
+        // 少量过冲是预期的：限位是软约束，每个子步单独求解
         assertTrue(worstSwing < 60.0D,
                 "swing reached " + worstSwing + " degrees, well past the 45 degree cone");
     }
@@ -191,7 +191,7 @@ class PhysicsCoreTest {
 
     @Test
     void bodyBuriedInTerrainIsPushedUpNotSideways() {
-        // A floor built from individual blocks, which is what the real world looks like.
+        // 由一个个方块拼成的地板，真实世界就是这个样子
         PhysicsWorld world = new PhysicsWorld();
         world.collider = (query, out) -> {
             for (int x = (int) Math.floor(query.minX()); x <= (int) Math.floor(query.maxX()); x++) {
@@ -203,9 +203,9 @@ class PhysicsCoreTest {
             }
         };
 
-        // Buried, and deliberately close to a vertical boundary between two floor blocks.
-        // The nearest face is that side face, so a naive least-penetration escape shoves
-        // the body sideways into its neighbour instead of up into the open air.
+        // 埋在方块里，并且故意贴着两块地板之间的竖直分界
+        // 最近的面就是这个侧面，所以朴素的最小穿透逃逸会把刚体
+        // 往侧向推进邻居方块里，而不是往上推到开阔的空气里
         RigidBody body = new RigidBody(new Vector3d(0.1D, 0.1D, 0.1D), 5.0D);
         body.pos.set(0.95D, -0.4D, 0.5D);
         world.bodies.add(body);

@@ -7,7 +7,7 @@ import net.minecraft.world.level.Level;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-/** Applies an incoming pose snapshot to the ragdoll it belongs to. */
+/** 把收到的姿态快照应用到它所属的布娃娃上 */
 public final class ClientPoseHandler {
 
     private ClientPoseHandler() {

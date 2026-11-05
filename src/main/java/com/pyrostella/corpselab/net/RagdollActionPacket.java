@@ -8,7 +8,7 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-/** A player asking to go down, or to get back up. Both are server decisions. */
+/** 玩家请求倒下或请求起身，两者都由服务端决定 */
 public final class RagdollActionPacket {
 
     public enum Action {

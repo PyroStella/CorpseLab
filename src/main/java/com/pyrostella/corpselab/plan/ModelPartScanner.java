@@ -14,16 +14,16 @@ import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelPart;
 
 /**
- * 把一个原版模型拆成 {@link BodyPlan}。
+ * 把一个原版模型拆成 {@link BodyPlan}
  *
- * <p><b>规则</b>：一个可见的 {@link ModelPart} 对应一个刚体，part 内部的多个 cuboid 合并成一个盒子。
- * 关节有三路来源，优先级从高到低：part 的父子关系、{@link ModelTopology} 的手写拓补表、
+ * <p><b>规则</b>：一个可见的 {@link ModelPart} 对应一个刚体，part 内部的多个 cuboid 合并成一个盒子
+ * 关节有三路来源，优先级从高到低：part 的父子关系、{@link ModelTopology} 的手写拓补表
  * 按几何关系自动补全（见 {@link ModelTopology#resolve}）。</p>
  *
- * <p><b>为什么需要拓补表</b>：原版模型里四肢常常是根节点的兄弟——僵尸的腿和身体平级，
+ * <p><b>为什么需要拓补表</b>：原版模型里四肢常常是根节点的兄弟——僵尸的腿和身体平级
  * 模型树里并没有"腿属于身体"这回事。只照抄 children 的话，这些生物的尸体会散成一地碎块。</p>
  *
- * <p><b>已知简化</b>：只累加平移，不累加 part 的旋转与缩放。原版模型在默认姿态下旋转基本为 0，
+ * <p><b>已知简化</b>：只累加平移，不累加 part 的旋转与缩放。原版模型在默认姿态下旋转基本为 0
  * 所以尺寸和相对位置是对的；带静态旋转的部件（比如某些模型的斜置角）会有偏差。</p>
  */
 public final class ModelPartScanner {
@@ -38,7 +38,7 @@ public final class ModelPartScanner {
     }
 
     /**
-     * 一个盒子对应的模型部件。
+     * 一个盒子对应的模型部件
      *
      * @param part 模型部件
      * @param cx   cuboid 包围盒中心，相对部件原点，模型空间单位（像素 / 16，未做 Y 翻转）
@@ -61,7 +61,7 @@ public final class ModelPartScanner {
         List<BodyPlan.Joint> treeJoints = new ArrayList<>();
         List<PartRef> parts = new ArrayList<>();
 
-        // 同一个 part 可能既出现在 headParts/bodyParts 里、又是别的部件的子节点，
+        // 同一个 part 可能既出现在 headParts/bodyParts 里、又是别的部件的子节点
         // 重复扫描会多出一个重叠的盒子，所以按实例去重
         Set<ModelPart> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 
@@ -78,10 +78,10 @@ public final class ModelPartScanner {
     }
 
     /**
-     * 找到模型的根部件并给它们起名字。
+     * 找到模型的根部件并给它们起名字
      *
-     * <p>层级模型只有一个 root，名字留给子部件（子部件的键名就已经是 {@code head}/{@code body0} 这种）。
-     * 可长大模型没有 root，只能取 {@code headParts()/bodyParts()}，而下标本身没有含义，
+     * <p>层级模型只有一个 root，名字留给子部件（子部件的键名就已经是 {@code head}/{@code body0} 这种）
+     * 可长大模型没有 root，只能取 {@code headParts()/bodyParts()}，而下标本身没有含义
      * 所以名字从拓补表里查，查不到就退回 {@code head0}/{@code body0}。</p>
      */
     private static Map<String, ModelPart> roots(EntityModel<?> model, ModelTopology.Table topology) {

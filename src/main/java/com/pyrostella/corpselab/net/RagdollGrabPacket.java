@@ -11,11 +11,11 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 /**
- * A player reaching for, or letting go of, a body.
+ * 玩家伸手去抓一具身体，或者松手放开
  *
- * <p>The packet says only whether the grab key is down. Which body and which limb is
- * decided entirely on the server from the player's own position and look direction, so a
- * client cannot claim to be holding something across the map or out of sight.
+ * <p>包里只说抓取键有没有按下。抓哪具身体、抓哪个肢体
+ * 全由服务端依据玩家自己的位置和视线方向决定，所以客户端无法
+ * 声称自己隔着半张地图或视线之外抓着东西
  */
 public final class RagdollGrabPacket {
 
@@ -46,19 +46,19 @@ public final class RagdollGrabPacket {
 
             for (RagdollEntity body : player.level().getEntitiesOfClass(RagdollEntity.class, search)) {
                 if (!grabbing) {
-                    // Release whatever this player was holding, wherever it is.
+                    // 放开这名玩家原先抓着的东西，不管它在哪里
                     if (body.isGrabbedBy(player)) {
                         body.releaseGrab();
                     }
                     continue;
                 }
 
-                // Never your own body: you are riding it.
+                // 绝不抓自己的身体：玩家正骑在上面
                 if (body == player.getVehicle()) {
                     continue;
                 }
                 if (body.tryGrab(player)) {
-                    // A settled body has to start simulating again to be dragged anywhere.
+                    // 已经静止的身体必须重新开始模拟，才拖得动
                     if (body instanceof SettlingBody settling) {
                         settling.wake();
                     }

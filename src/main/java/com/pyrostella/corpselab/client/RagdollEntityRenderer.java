@@ -35,19 +35,19 @@ import org.joml.Vector3f;
 import java.util.UUID;
 
 /**
- * Draws the owner's player model with each cuboid placed at its own body's transform,
- * rather than at the pivot the model would normally use.
+ * 画出主人的玩家模型，但把每个长方体摆在它自己刚体的变换上
+ * 而不是模型本来使用的枢轴
  *
- * <p>This works precisely because the ragdoll has one body per renderable cuboid. There
- * is no model surgery, no extra geometry and no custom mesh - the same six parts vanilla
- * draws, put somewhere else.
+ * <p>这之所以成立，是因为布娃娃的每个可渲染长方体都对应一个刚体。这里
+ * 没有模型改造、没有额外几何，也没有自定义网格 ——
+ * 就是原版画的那六个部件，放到别的位置
  */
 public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRenderer<T> {
 
     private final PlayerModel<AbstractClientPlayer> wideModel;
     private final PlayerModel<AbstractClientPlayer> slimModel;
 
-    /** Vanilla's two armour models: the slim one is used for leggings. */
+    /** 原版的两套盔甲模型：细的那套用于护腿 */
     private final HumanoidModel<AbstractClientPlayer> innerArmor;
     private final HumanoidModel<AbstractClientPlayer> outerArmor;
 
@@ -63,12 +63,12 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
     }
 
     /**
-     * The owner's entry in the player list, which is the reliable source for a skin.
+     * 主人在玩家列表里的条目，这是拿皮肤的可靠来源
      *
-     * <p>Looking the player entity up by uuid fails around a death: the dying entity is
-     * replaced when the player respawns, so a corpse would fall back to the default skin
-     * and only correct itself once its owner came back. The player list entry survives
-     * both, and exists for players who are nowhere near their body.
+     * <p>按 uuid 查玩家实体会在死亡前后失效：玩家重生时，垂死的
+     * 实体会被替换掉，于是尸体会退化成默认皮肤，要等主人回来
+     * 才会自己纠正。玩家列表条目在两种情况下都还在
+     * 主人根本不在尸体附近时它也存在
      */
     private PlayerInfo playerInfo(T entity) {
         UUID id = entity.getOwnerId();
@@ -120,7 +120,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
             return;
         }
 
-        // Resolve the pose once, so every limb and the camera agree on one instant.
+        // 位姿只解析一次，保证每条肢体和相机参考的是同一瞬间
         entity.samplePose(partialTick);
 
         boolean slim = isSlim(entity);
@@ -129,16 +129,16 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
 
         Quaternionf rotation = new Quaternionf();
 
-        // Where the dispatcher has already translated the pose stack to. Limb positions
-        // arrive in world space, so this is subtracted back out; that keeps the body
-        // rigid even when the entity's own position sync lags.
+        // 调度器已经把 pose stack 平移到的位置。肢体位置是世界坐标
+        // 所以这里要把它减回去；这样即使实体自身的位置同步有延迟
+        // 身体也仍然保持刚性
         double renderX = Mth.lerp(partialTick, entity.xOld, entity.getX());
         double renderY = Mth.lerp(partialTick, entity.yOld, entity.getY());
         double renderZ = Mth.lerp(partialTick, entity.zOld, entity.getZ());
 
-        // When the camera is inside this ragdoll's head, drawing the head would fill the
-        // screen with the inside of a cuboid. Vanilla hides the player model in first
-        // person for the same reason.
+        // 相机位于这个布娃娃的头部内部时，画头只会让整个屏幕
+        // 变成长方体的内壁。原版在第一人称下隐藏玩家模型
+        // 也是同样的原因
         Player local = Minecraft.getInstance().player;
         boolean hideHead = local != null && entity == local.getVehicle() && RagdollCamera.isActive();
 
@@ -156,20 +156,20 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
             poseStack.translate(world.x - renderX, world.y - renderY, world.z - renderZ);
             poseStack.mulPose(rotation);
 
-            // Into model space. Vanilla draws humanoids with X and Y inverted, which is
-            // also what makes the skin texture come out the right way round.
+            // 进入模型空间。原版画人形时把 X 和 Y 取反
+            // 这也正是让皮肤贴图方向正确的原因
             poseStack.scale(-1.0F, -1.0F, 1.0F);
 
-            // Put the cuboid's own centre on the body's origin. Without this the part
-            // would hang off its pivot, which for an arm is the shoulder.
+            // 把长方体自己的中心对到刚体原点上。少了这一步
+            // 部件会挂在自己的枢轴外，对手臂来说枢轴就是肩膀
             Vector3f centre = cuboidCentre(part, slim);
             poseStack.translate(-centre.x / 16.0F, -centre.y / 16.0F, -centre.z / 16.0F);
 
             renderPart(basePart(model, part), poseStack, consumer, light);
             renderPart(overlayPart(model, part), poseStack, consumer, light);
 
-            // The stack is now at the part's own pivot in model space, which is exactly
-            // where vanilla draws armour and held items from.
+            // 此时栈已经位于模型空间里该部件自己的枢轴
+            // 而这正是原版绘制盔甲和手持物品的起点
             RagdollEquipment.render(entity, owner(entity), part, poseStack, buffer, light,
                     innerArmor, outerArmor);
             renderHeldItem(entity, part, poseStack, buffer, light);
@@ -181,10 +181,10 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
     }
 
     /**
-     * Draws whatever the owner is holding, at the hand.
+     * 在手上画出主人正拿着的东西
      *
-     * <p>Follows vanilla's ItemInHandLayer from the arm's pivot: the same rotations and
-     * the same offset to the fist, so an item sits in the hand rather than floating.
+     * <p>照着原版的 ItemInHandLayer，从手臂的枢轴出发：同样的旋转
+     * 同样的到拳头的偏移，物品才会握在手里而不是浮着
      */
     private void renderHeldItem(T entity, BodyPart part, PoseStack poseStack,
                                 MultiBufferSource buffer, int light) {
@@ -197,12 +197,12 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
         }
 
         boolean leftArm = part == BodyPart.ARM_LEFT;
-        // An offline owner leaves no handedness to read, so assume the common case.
+        // 主人离线时读不到惯用手，按常见情况处理
         HumanoidArm mainArm = owner == null ? HumanoidArm.RIGHT : owner.getMainArm();
         boolean isMainHand = (mainArm == HumanoidArm.LEFT) == leftArm;
 
-        // A corpse holds what it is carrying. Reading the owner would show whatever they
-        // picked up after respawning, or nothing at all.
+        // 尸体拿的是它自己带着的东西。读主人只会显示主人重生后捡到的物品
+        // 或者什么都显示不出来
         ItemStack stack;
         if (entity instanceof CorpseEntity corpse) {
             stack = corpse.equipment(isMainHand ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND);
@@ -227,7 +227,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
         poseStack.popPose();
     }
 
-    /** Neutralises the model's own pose so the cubes land where the physics put them. */
+    /** 把模型自身的姿态清零，让方块落在物理计算给出的位置 */
     private static void renderPart(ModelPart part, PoseStack poseStack, VertexConsumer consumer, int light) {
         if (part == null) {
             return;
@@ -253,7 +253,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
         };
     }
 
-    /** The outer skin layer: hair, jacket, sleeves, trouser legs. */
+    /** 外层的皮肤层：头发、外套、袖子、裤腿 */
     private static ModelPart overlayPart(PlayerModel<AbstractClientPlayer> model, BodyPart part) {
         return switch (part) {
             case HEAD -> model.hat;
@@ -266,12 +266,12 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
     }
 
     /**
-     * Centre of each cuboid in its own part's local space, in model pixels.
+     * 每个长方体在自己部件局部空间里的中心，单位是模型像素
      *
-     * <p>These are vanilla's humanoid model constants. A head cube spans y -8..0 about
-     * its pivot, a body 0..12, and an arm or leg -2..10 and 0..12 respectively; the slim
-     * model's arms are three pixels wide instead of four, which shifts their centre by
-     * half a pixel.
+     * <p>这些都是原版人形模型的常量。头部方块相对枢轴的 y 范围
+     * 是 -8..0，躯干是 0..12，手臂和腿分别是 -2..10 和 0..12
+     * 细模型的胳膊宽三像素而不是四像素，所以它们的中心
+     * 会偏半个像素
      */
     private static Vector3f cuboidCentre(BodyPart part, boolean slim) {
         return switch (part) {

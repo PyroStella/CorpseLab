@@ -4,15 +4,15 @@ import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
 /**
- * A box-shaped rigid body integrated with substepped XPBD.
+ * 盒状刚体，用子步化 XPBD 积分
  *
- * <p>Units are Minecraft's: positions in blocks, velocities in blocks per second.
+ * <p>单位沿用 Minecraft 的：位置用格，速度用格每秒
  *
- * <p>Deliberately free of any Minecraft dependency so the solver can be tested headlessly.
+ * <p>刻意不依赖任何 Minecraft 代码，这样求解器可以脱离游戏做无头测试
  */
 public final class RigidBody {
 
-    /** Corrections larger than this many radians in one substep are clamped, to keep the solver stable. */
+    /** 单个子步内超过这么多弧度的修正会被截断，以保证求解器稳定 */
     private static final double MAX_ROTATION_PER_CORRECTION = 0.5D;
 
     public final Vector3d pos = new Vector3d();
@@ -21,18 +21,18 @@ public final class RigidBody {
     public final Vector3d linVel = new Vector3d();
     public final Vector3d angVel = new Vector3d();
 
-    /** State at the start of the current substep, used to derive velocity after the position solve. */
+    /** 当前子步开始时的状态，用于在位置求解之后反推速度 */
     final Vector3d prevPos = new Vector3d();
     final Quaterniond prevRot = new Quaterniond();
 
-    /** Half-extents of the box, in blocks. */
+    /** 盒的半边长，单位为格 */
     public final Vector3d halfExtents = new Vector3d();
 
     public double invMass;
-    /** Inverse of the diagonal inertia tensor, in body space. */
+    /** 对角转动惯量张量的逆，在刚体坐标系下 */
     public final Vector3d invInertia = new Vector3d();
 
-    /** Multiplied into velocity each substep. 1.0 is no damping. */
+    /** 每个子步乘到速度上；1.0 表示没有阻尼 */
     public double linearDamping = 1.0D;
     public double angularDamping = 1.0D;
 
@@ -43,7 +43,7 @@ public final class RigidBody {
         setMass(mass);
     }
 
-    /** Sets mass and the box inertia tensor derived from the current half-extents. */
+    /** 设置质量，并按当前半边长推导盒的转动惯量张量 */
     public void setMass(double mass) {
         if (mass <= 0.0D) {
             invMass = 0.0D;
@@ -67,7 +67,7 @@ public final class RigidBody {
         return invMass == 0.0D;
     }
 
-    /** Advances position and orientation by one substep of {@code h} seconds. */
+    /** 把位置和姿态推进一个子步，子步长为 {@code h} 秒 */
     void integrate(double h, Vector3d gravity) {
         if (isStatic()) {
             prevPos.set(pos);
@@ -86,7 +86,7 @@ public final class RigidBody {
         applyAngularVelocity(h);
     }
 
-    /** Integrates the orientation: q += (h/2) * omega_quat * q, then renormalises. */
+    /** 积分姿态：q += (h/2) * omega_quat * q，然后重新归一化 */
     private void applyAngularVelocity(double h) {
         double wx = angVel.x;
         double wy = angVel.y;
@@ -108,7 +108,7 @@ public final class RigidBody {
         rot.normalize();
     }
 
-    /** Recovers velocities from the position change made by the constraint solve. */
+    /** 由约束求解造成的位置变化反推速度 */
     void deriveVelocity(double h) {
         if (isStatic()) {
             return;
@@ -117,7 +117,7 @@ public final class RigidBody {
         double inv = 1.0D / h;
         linVel.set(pos).sub(prevPos).mul(inv);
 
-        // dq = rot * prevRot^-1, the world-frame rotation applied this substep.
+        // dq = rot * prevRot^-1，即本子步施加的世界坐标系旋转
         double px = -prevRot.x;
         double py = -prevRot.y;
         double pz = -prevRot.z;
@@ -136,9 +136,9 @@ public final class RigidBody {
     }
 
     /**
-     * Generalised inverse mass along {@code normal}.
+     * 沿 {@code normal} 方向的广义逆质量
      *
-     * @param worldPoint world-space point of application, or null for a purely angular constraint
+     * @param worldPoint 作用点的世界坐标；纯角度约束时传 null
      */
     public double inverseMass(Vector3d normal, Vector3d worldPoint) {
         if (worldPoint == null) {
@@ -157,9 +157,9 @@ public final class RigidBody {
     }
 
     /**
-     * Applies a positional (or velocity-level) correction.
+     * 施加一个位置（或速度层面）的修正
      *
-     * @param worldPoint world-space point of application, or null for a purely angular correction
+     * @param worldPoint 作用点的世界坐标；纯角度修正时传 null
      */
     public void applyCorrection(Vector3d corr, Vector3d worldPoint, boolean velocityLevel) {
         if (isStatic()) {
@@ -178,7 +178,7 @@ public final class RigidBody {
             torqueAxis.set(worldPoint).sub(pos).cross(corr);
         }
 
-        // Convert the torque axis through the inverse inertia tensor, in body space.
+        // 把力矩轴经逆转动惯量张量变换过去，变换在刚体坐标系下进行
         rot.transformInverse(torqueAxis);
         torqueAxis.mul(invInertia);
         rot.transform(torqueAxis);
@@ -215,17 +215,17 @@ public final class RigidBody {
         rot.normalize();
     }
 
-    /** Transforms a body-space point into world space. */
+    /** 把刚体坐标系下的点变换到世界坐标系 */
     public Vector3d toWorld(Vector3d local, Vector3d dest) {
         return rot.transform(dest.set(local)).add(pos);
     }
 
-    /** Rotates a body-space direction into world space. */
+    /** 把刚体坐标系下的方向旋转到世界坐标系 */
     public Vector3d dirToWorld(Vector3d local, Vector3d dest) {
         return rot.transform(dest.set(local));
     }
 
-    /** Velocity of the world-space point {@code worldPoint} on this body. */
+    /** 本刚体上世界坐标点 {@code worldPoint} 处的速度 */
     public Vector3d pointVelocity(Vector3d worldPoint, Vector3d dest) {
         dest.set(worldPoint).sub(pos).cross(angVel).negate().add(linVel);
         return dest;

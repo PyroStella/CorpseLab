@@ -18,22 +18,22 @@ import org.joml.Vector3d;
 import java.util.Optional;
 
 /**
- * The body of a mob that has died, in place of vanilla's toppling death animation.
+ * 已经死亡的生物的身体，用来取代原版那个倒下的死亡动画
  *
- * <p>Carries no loot: a mob's drops are vanilla's business and still land on the floor.
- * This is purely the body, and it goes away on a timer.
+ * <p>不携带任何掉落物：生物的掉落物是原版的事，仍然会掉在地上
+ * 这里纯粹只是尸体，并且会按计时器消失
  *
- * <p>Only humanoid mobs are given one. Which mobs count is decided on the server from a
- * configured list, because the model that would be drawn on the body is a client-side
- * thing the server cannot see.
+ * <p>只有类人生物才会拥有尸体。哪些生物算数由服务端依据一份
+ * 配置列表决定，因为要画在尸体上的模型是客户端的东西
+ * 服务端根本看不到
  */
 public class MobCorpseEntity extends SettlingBody {
 
-    /** The mob this body came from, so the client knows whose model to draw. */
+    /** 这具尸体来自哪种生物，让客户端知道该画谁的模型 */
     private static final EntityDataAccessor<String> SOURCE_TYPE =
             SynchedEntityData.defineId(MobCorpseEntity.class, EntityDataSerializers.STRING);
 
-    /** Baby mobs are drawn at half scale, and their bodies should be too. */
+    /** 幼年生物按半尺寸绘制，它们的尸体也应如此 */
     private static final EntityDataAccessor<Boolean> BABY =
             SynchedEntityData.defineId(MobCorpseEntity.class, EntityDataSerializers.BOOLEAN);
 
@@ -41,7 +41,7 @@ public class MobCorpseEntity extends SettlingBody {
         super(type, level);
     }
 
-    /** Builds a body where a mob just died, carrying the pose and motion it had. */
+    /** 在生物刚刚死亡的位置创建尸体，并带上它当时的姿态与运动状态 */
     public static MobCorpseEntity of(LivingEntity mob, Vec3 momentum) {
         Level level = mob.level();
         MobCorpseEntity corpse = new MobCorpseEntity(CorpseLabRegistry.MOB_CORPSE.get(), level);
@@ -72,7 +72,7 @@ public class MobCorpseEntity extends SettlingBody {
         entityData.define(BABY, false);
     }
 
-    /** The mob type whose model should be drawn, or empty if it is unknown. */
+    /** 应当绘制其模型的生物类型，未知时为空 */
     public Optional<EntityType<?>> sourceType() {
         String id = entityData.get(SOURCE_TYPE);
         if (id.isEmpty()) {

@@ -23,9 +23,9 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.joml.Quaternionf;
 
 /**
- * 尸体渲染器：把每个刚体的位姿套回原模型的对应部件。
+ * 尸体渲染器：把每个刚体的位姿套回原模型的对应部件
  *
- * <p>做法是"逐部件独立绘制"：临时清掉部件的父子关系与自身变换，把它当成一组孤立的长方体，
+ * <p>做法是"逐部件独立绘制"：临时清掉部件的父子关系与自身变换，把它当成一组孤立的长方体
  * 摆到刚体所在的位置。这样不需要在层级里反解局部变换，也不会出现子部件被画两次。</p>
  */
 public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
@@ -86,7 +86,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
     }
 
     /**
-     * 只画这一个部件的方块，不画子部件、不带自身变换。
+     * 只画这一个部件的方块，不画子部件、不带自身变换
      *
      * <p>父级的平移到这一步已经由刚体位姿表达过了，所以必须先归零，否则会被算两遍。</p>
      */

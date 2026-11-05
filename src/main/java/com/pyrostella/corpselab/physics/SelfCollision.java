@@ -6,21 +6,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Keeps unconnected parts of one assembly from passing through each other.
+ * 防止同一装配体里未相连的部件互相穿透
  *
- * <p>Each part is approximated by a short chain of spheres strung along its long axis
- * rather than tested as an oriented box. A box-box manifold is far more code and far more
- * ways to jitter, and on a body that is mostly limbs nobody can tell the difference.</p>
+ * <p>每个部件不是按有向盒来检测，而是用一串沿长轴排开的球近似
+ * ——盒对盒的接触流形代码量大得多，能抖动的来源也多得多，而在一个
+ * 主要由四肢组成的身体上，没人看得出差别</p>
  *
- * <p>Parts joined by a joint are <em>not</em> registered: they are supposed to overlap at
- * the shoulder or hip, and pushing them apart would fight the joint.</p>
+ * <p>由关节连接的部件<em>不会</em>登记，因为它们在肩或髋处本来就
+ * 该重叠，硬把彼此推开只会和关节对着干</p>
  */
 public final class SelfCollision implements Constraint {
 
     private record Sphere(RigidBody body, Vector3d centre, double radius) {
     }
 
-    /** Every pair is stored as two matching lists, so the solver is one flat loop. */
+    /** 每个球对拆成两个对齐的列表存放，这样求解器就是一层平铺的循环 */
     private final List<Sphere> first = new ArrayList<>();
     private final List<Sphere> second = new ArrayList<>();
 
@@ -28,7 +28,7 @@ public final class SelfCollision implements Constraint {
     private final Vector3d pointB = new Vector3d();
     private final Vector3d delta = new Vector3d();
 
-    /** Compliance keeps the push soft, so a settling pile eases apart instead of popping. */
+    /** 柔度让推力保持柔软，这样正在堆叠的物体会缓缓分开而不是弹开 */
     public double compliance = 0.0002D;
 
     @Override
@@ -36,7 +36,7 @@ public final class SelfCollision implements Constraint {
         return false;
     }
 
-    /** Registers every sphere of one part against every sphere of another. */
+    /** 把两个部件之间的球两两配对登记 */
     public void addPair(RigidBody bodyA, List<Vector3d> centresA, double radiusA,
                         RigidBody bodyB, List<Vector3d> centresB, double radiusB) {
         for (Vector3d one : centresA) {
@@ -51,7 +51,7 @@ public final class SelfCollision implements Constraint {
         return this.first.size();
     }
 
-    /** Deepest current overlap across all registered pairs, in blocks. Zero when clear. */
+    /** 所有已登记配对里当前最深的重叠量，单位为格；没有重叠时为 0 */
     public double worstOverlap() {
         double worst = 0.0D;
         for (int i = 0; i < this.first.size(); i++) {

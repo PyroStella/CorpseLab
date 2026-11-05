@@ -19,9 +19,9 @@ import com.pyrostella.corpselab.ragdoll.RagdollSkeleton;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 用 {@link BodyPlan} 搭出来的一具布娃娃：N 个刚体（+ 可选关节），跑在 XPBD 求解器上。
+ * 用 {@link BodyPlan} 搭出来的一具布娃娃：N 个刚体（+ 可选关节），跑在 XPBD 求解器上
  *
- * <p>和 Tumble 的 {@code RagdollSkeleton} 的区别：那个写死了 6 个人形部件，这个的部件数量、
+ * <p>和 Tumble 的 {@code RagdollSkeleton} 的区别：那个写死了 6 个人形部件，这个的部件数量
  * 尺寸、拓扑全部来自 BodyPlan——所以原版模型和 geo 模型都能喂进来。</p>
  *
  * <p>坐标转换：原版模型空间是 {@code scale(-1,-1,1)} 加 1.501 格抬升，所以模型点
@@ -49,7 +49,7 @@ public final class PlanRagdoll {
     private final boolean articulated;
 
     /**
-     * 不继承姿势的构造器（存档重建、或不需要姿势的场合）。
+     * 不继承姿势的构造器（存档重建、或不需要姿势的场合）
      */
     public PlanRagdoll(BodyPlan plan, double x, double y, double z, double yaw, Vec3 impulse) {
         this(plan, x, y, z, yaw, impulse, null);
@@ -103,7 +103,7 @@ public final class PlanRagdoll {
             buildJoints(pose, centres, orientation);
         }
 
-        // 自碰撞两种模式都建：无关节时它是唯一把散开的部件约束成一堆的东西，
+        // 自碰撞两种模式都建：无关节时它是唯一把散开的部件约束成一堆的东西
         // 有骨架时它挡住手臂插进胸腔、腿穿过另一条腿
         if (PlanConfig.selfCollision()) {
             buildSelfCollision();
@@ -124,7 +124,7 @@ public final class PlanRagdoll {
     // ---------- 关节 ----------
 
     /**
-     * 按骨架的关节表建软关节：位置靠弹性拉回，被拽开太远就断开。
+     * 按骨架的关节表建软关节：位置靠弹性拉回，被拽开太远就断开
      *
      * <p>FREE 模式根本不调用这个方法：那个模式下一个关节都不建。</p>
      */
@@ -145,14 +145,14 @@ public final class PlanRagdoll {
             PlanPose.Frame childFrame = pose == null ? restFrame(child) : pose[joint.child()];
             PlanPose.Frame parentFrame = pose == null ? restFrame(parent) : pose[joint.parent()];
 
-            // 关节长在子部件的枢轴上（肩、髋、脖子），而不是两个盒子中心的中点：
+            // 关节长在子部件的枢轴上（肩、髋、脖子），而不是两个盒子中心的中点
             // 这样姿势是绕关节转的，关节也不会把姿势抹掉
             Vector3d pivot = childFrame.origin();
             Vector3d anchorChild = localAnchor(childFrame, centres[joint.child()], pivot);
             Vector3d anchorParent = localAnchor(parentFrame, centres[joint.parent()], pivot);
 
             // 关节帧的局部 X 轴必须指向骨头。传单位四元数等于把刚体自己的 X 轴（横向！）
-            // 当成骨轴：swing 锥角因为两轴永远平行而整条失效，twist 限制则落到"相对俯仰"上，
+            // 当成骨轴：swing 锥角因为两轴永远平行而整条失效，twist 限制则落到"相对俯仰"上
             // 于是腿绕自身长轴内旋、向外张开这些自由度完全没人管
             Vector3d bone = boneDirection(joint.child(), parentOf, centres, boneDirs, visiting);
             Quaterniond boneFrame = new Quaterniond()
@@ -173,7 +173,7 @@ public final class PlanRagdoll {
     }
 
     /**
-     * 子盒子相对父盒子的骨轴方向（模型空间单位向量）。
+     * 子盒子相对父盒子的骨轴方向（模型空间单位向量）
      *
      * <p>取两个盒子中心之差：肢体从躯干中心朝外长，这个方向就是骨头指的方向。帽子和脑袋
      * 这类中心几乎重合的部件算不出方向，就继承父盒子的方向；根盒子退回模型空间的 +Y。</p>
@@ -243,7 +243,7 @@ public final class PlanRagdoll {
     // ---------- 自碰撞 ----------
 
     /**
-     * 给没被关节直接连起来的盒子两两加球-球约束：手臂不能插进躯干，腿不能穿过另一条腿。
+     * 给没被关节直接连起来的盒子两两加球-球约束：手臂不能插进躯干，腿不能穿过另一条腿
      *
      * <p>球沿每个盒子的最长轴摆 1-3 个，半径取两个短半轴里较小的那个，所以细长的腿是几颗
      * 小球串起来，而不是一个包住整条腿的大球。</p>
@@ -254,7 +254,7 @@ public final class PlanRagdoll {
             return;
         }
 
-        // 有骨架时直接相连的父子部件贴在一起是正常的，别让它们互相排斥；
+        // 有骨架时直接相连的父子部件贴在一起是正常的，别让它们互相排斥
         // 无骨架时它们只是两块独立的肉，照样要挡
         boolean[][] jointed = new boolean[count][count];
         if (this.articulated) {
@@ -278,7 +278,7 @@ public final class PlanRagdoll {
                 if (jointed[i][j]) {
                     continue;
                 }
-                // 出生就深深叠在一起的部件（四足生物的前腿与胸腔、鸡的翅膀）不参与，
+                // 出生就深深叠在一起的部件（四足生物的前腿与胸腔、鸡的翅膀）不参与
                 // 否则一生成就被推开，整具尸体当场炸开。只略微交叠的（两条腿）照样参与
                 if (nestedAtSpawn(i, j, spheres.get(i), radii[i], spheres.get(j), radii[j])) {
                     continue;
@@ -294,13 +294,13 @@ public final class PlanRagdoll {
     }
 
     /**
-     * 这两件在生成姿势下是不是<b>天生</b>嵌在一起（本来就这么建模的）。
+     * 这两件在生成姿势下是不是<b>天生</b>嵌在一起（本来就这么建模的）
      *
      * <p>判据是"一方的中心落在另一方的盒子里"：鸡的翅膀整个埋在身体里、四足生物的前腿
      * 长在胸腔里，都是这种。它们本来就不该被推开，否则一生成整具尸体就炸开。</p>
      *
-     * <p>不能用"中心距离 < 半径和"来判：人形两条腿的中心只差 0.2375，两球半径和 0.25，
-     * 那样腿这一对会从出生就被当成"已经叠着"整对丢掉——腿之间从此再没有任何排斥力，
+     * <p>不能用"中心距离 < 半径和"来判：人形两条腿的中心只差 0.2375，两球半径和 0.25
+     * 那样腿这一对会从出生就被当成"已经叠着"整对丢掉——腿之间从此再没有任何排斥力
      * 可以一路交叉着贴到一起。</p>
      */
     private boolean nestedAtSpawn(int first, int second, List<Vector3d> firstSpheres, double firstRadius,
@@ -337,7 +337,7 @@ public final class PlanRagdoll {
     }
 
     /**
-     * 沿最长轴给一个盒子摆球，球半径取横截面的短半轴，让球正好填满盒子宽度。
+     * 沿最长轴给一个盒子摆球，球半径取横截面的短半轴，让球正好填满盒子宽度
      *
      * @return 球的半径
      */
@@ -397,7 +397,7 @@ public final class PlanRagdoll {
     }
 
     /**
-     * 调试视图用：这个盒子在自碰撞里实际用的球（半径 + 刚体局部坐标里的球心偏移）。
+     * 调试视图用：这个盒子在自碰撞里实际用的球（半径 + 刚体局部坐标里的球心偏移）
      *
      * <p>和求解器读的是同一份数据，所以画出来的就是真正在解的东西。</p>
      */
@@ -447,7 +447,7 @@ public final class PlanRagdoll {
         return this.bodies[index];
     }
 
-    /** 所有还连着的关节里，锚点被拉开最多的那一个的距离。 */
+    /** 所有还连着的关节里，锚点被拉开最多的那一个的距离 */
     public double maxAnchorGap() {
         double worst = 0.0D;
         for (Constraint constraint : this.world.constraints) {
@@ -458,7 +458,7 @@ public final class PlanRagdoll {
         return worst;
     }
 
-    /** 已经断开的关节数量。调试渲染和测试用。 */
+    /** 已经断开的关节数量。调试渲染和测试用 */
     public int brokenJointCount() {
         int broken = 0;
         for (Constraint constraint : this.world.constraints) {

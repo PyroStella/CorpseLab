@@ -6,24 +6,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The substepped XPBD solver.
+ * 子步化的 XPBD 求解器
  *
- * <p>Contacts are generated once per step against a small margin, then re-evaluated each
- * substep. That is the standard trade: broadphase is the expensive part, and the margin
- * covers the distance a body can move within one step.</p>
+ * <p>接触每步只按一个小余量生成一次，之后每个子步重新求值
+ * 是标准做法：宽相检测才是开销大头，而余量覆盖了刚体一步之内
+ * 可能移动的距离</p>
  */
 public final class PhysicsWorld {
 
-    /** Minecraft's gravity, in blocks per second squared (0.08 blocks/tick² at 20 tps). */
+    /** Minecraft 的重力，单位为格每二次方秒（20 tps 时相当于 0.08 格每 tick²） */
     public static final double MC_GRAVITY = -32.0D;
 
-    /** Contacts are kept alive while a sample point is within this distance of a solid. */
+    /** 采样点与实体方块的距离在此以内时，接触会保持存活 */
     private static final double CONTACT_MARGIN = 0.04D;
 
     /** 支撑中的刚体每 tick 保留的速度比例，见 {@link #step} 末尾 */
     private static final double REST_DAMPING = 0.85D;
 
-    /** Hard cap on speed, so nothing can outrun the contact margin within one step. */
+    /** 速度的硬上限，保证一步之内没有任何东西能跑出接触余量 */
     public double maxSpeed = 128.0D;
 
     public final List<RigidBody> bodies = new ArrayList<>();
@@ -36,16 +36,16 @@ public final class PhysicsWorld {
     public WorldCollider collider = WorldCollider.EMPTY;
 
     /**
-     * More substeps buy stability far more cheaply than more solver iterations do - that is
-     * the central result of the small-substep XPBD paper.
+     * 用更多子步换取稳定性的代价远低于增加求解迭代次数——这正是小步长 XPBD
+     * 那篇论文的核心结论
      */
     public int substeps = 16;
 
     /**
-     * 每个子步把位置约束投影几遍。
+     * 每个子步把位置约束投影几遍
      *
-     * <p>只投一遍时，互相矛盾的硬约束（髋部锚点必须重合 vs 脚不能进地面）只能满足后者，
-     * 前者留下残余位移，再被 {@link RigidBody#deriveVelocity} 折算成速度：姿态永远在抖、
+     * <p>只投一遍时，互相矛盾的硬约束（髋部锚点必须重合 vs 脚不能进地面）只能满足后者
+     * 前者留下残余位移，再被 {@link RigidBody#deriveVelocity} 折算成速度：姿态永远在抖
      * 永远不静止。多投几遍，它们才会协商出一个折中。</p>
      */
     public int iterations = 1;
@@ -90,9 +90,9 @@ public final class PhysicsWorld {
     }
 
     /**
-     * 一 tick 结束时收尾：记录是否有东西踩在地上，并把支撑中的刚体速度压一点。
+     * 一 tick 结束时收尾：记录是否有东西踩在地上，并把支撑中的刚体速度压一点
      *
-     * <p>静摩擦在位置层面被多遍迭代摊薄之后，落地尸体仍会以几厘米每秒的速度慢慢滑走，
+     * <p>静摩擦在位置层面被多遍迭代摊薄之后，落地尸体仍会以几厘米每秒的速度慢慢滑走
      * 肉眼非常明显，所以要在这里再收一次。</p>
      */
     private void settle() {
@@ -108,16 +108,16 @@ public final class PhysicsWorld {
     }
 
     /**
-     * Whether anything in the assembly is resting on a surface, as of the last step.
+     * 截至上一步，装配体里是否有东西停在一个表面上
      *
-     * <p>Measured from the contacts themselves rather than from height or speed, so a body
-     * wedged against a wall or falling past a ledge is not mistaken for one that landed.</p>
+     * <p>判断直接来自接触本身，而不是高度或速度，所以卡在墙边、或正从
+     * 边缘掉下去的刚体不会被误判成已经落地</p>
      */
     public boolean isGrounded() {
         return this.grounded;
     }
 
-    /** Highest linear speed in the assembly, used to decide when a ragdoll has settled. */
+    /** 装配体里最高的线速度，用来判断布娃娃是否已经静止 */
     public double maxBodySpeed() {
         double max = 0.0D;
         for (RigidBody body : this.bodies) {
@@ -136,15 +136,15 @@ public final class PhysicsWorld {
     }
 
     /**
-     * Builds the step's contact set.
+     * 构建本步的接触集
      *
-     * <p>Contacts are <em>speculative</em>: one is created for every sample point close
-     * enough to reach a solid within this step, including points still in mid-air. It stays
-     * inert until the per-substep depth test says the point is actually inside.</p>
+     * <p>接触是<em>推测性</em>的：只要某个采样点本步内可能够到实体
+     * 方块，就为它建一个接触，包括还在半空中的点。在子步的深度
+     * 测试判定该点确实已经陷入之前，它一直是不生效的</p>
      *
-     * <p>That is what stops a body launched at 128 blocks/s - 6.4 blocks in a single tick -
-     * from passing straight through a one-block floor: the reach is the body's own travel
-     * distance for the step, so the faster it moves, the further ahead it looks.</p>
+     * <p>正是这一点阻止了以 128 格每秒（单个 tick 走 6.4 格）发射的刚体直接
+     * 穿过一格厚的地板：探测距离就是刚体本步自己的行程，所以它跑得
+     * 越快，往前看得越远</p>
      */
     private void generateContacts(double dt) {
         this.contacts.clear();
@@ -181,7 +181,7 @@ public final class PhysicsWorld {
         }
     }
 
-    /** Distance from a point to a box; zero when the point is inside. */
+    /** 点到盒的距离，点在里面时为 0 */
     private static double distanceTo(Aabb box, Vector3d p) {
         double dx = Math.max(Math.max(box.minX() - p.x, 0.0D), p.x - box.maxX());
         double dy = Math.max(Math.max(box.minY() - p.y, 0.0D), p.y - box.maxY());
@@ -196,11 +196,11 @@ public final class PhysicsWorld {
     };
 
     /**
-     * Chooses the escape direction, once per contact, and then holds it for the whole step.
+     * 为每个接触选定一次逃逸方向，然后在整个步长内保持不变
      *
-     * <p>Outside the box the normal is the dominant axis of separation - for a body falling
-     * towards a floor that is the top face, the one it will land on. Inside, it is the
-     * shallowest face that is actually exposed.</p>
+     * <p>点在盒外时，法线取分离量占优的那个轴——对正落向地板的刚体
+     * 来说就是顶面，也就是它将落在的那一面。点在盒内时，取实际
+     * 暴露出来的最浅的那个面</p>
      */
     private static void pickNormal(Aabb box, Vector3d p, Vector3d out, List<Aabb> neighbours) {
         double dx = p.x - XpbdMath.clamp(p.x, box.minX(), box.maxX());
@@ -221,13 +221,13 @@ public final class PhysicsWorld {
             return;
         }
 
-        // Inside the box: escape through the shallowest face that is actually exposed.
+        // 点在盒内时：从实际暴露出来的最浅的那个面逃逸
         //
-        // Skipping buried faces is essential in a voxel world. A point resting a hair below
-        // a floor surface sits far closer to the block's vertical side face than to its top,
-        // so the naive least-penetration answer is sideways - and two adjacent floor blocks
-        // then shove the body in opposite directions, which reads in game as a settled
-        // ragdoll skating slowly across the ground forever.
+        // 在体素世界里，跳过被埋住的面非常关键。一个停在略低于地板表面
+        // 的点，离方块竖直侧面的距离远小于离顶面的距离，所以朴素的
+        // 最小穿透答案会指向侧向——而相邻两块地板随后会把刚体朝相反
+        // 方向推，在游戏里看起来就是已经停稳的布娃娃一直在地面上
+        // 慢慢滑行，而且永远停不下来
         double bestDepth = Double.MAX_VALUE;
         out.set(0.0D, 1.0D, 0.0D);
 
@@ -260,7 +260,7 @@ public final class PhysicsWorld {
         return box.maxZ() - p.z;
     }
 
-    /** True when another solid abuts this face, making it interior geometry. */
+    /** 另一个实体方块紧贴着这个面、使其成为内部几何时为 true */
     private static boolean isFaceBuried(Aabb box, Vector3d face, List<Aabb> neighbours) {
         double probeX = (box.minX() + box.maxX()) * 0.5D + face.x * ((box.maxX() - box.minX()) * 0.5D + 0.1D);
         double probeY = (box.minY() + box.maxY()) * 0.5D + face.y * ((box.maxY() - box.minY()) * 0.5D + 0.1D);
@@ -274,7 +274,7 @@ public final class PhysicsWorld {
         return false;
     }
 
-    /** Conservative bounds covering where the body is now and where it will be after {@code dt}. */
+    /** 保守包围盒，同时覆盖刚体现在的位置和经过 {@code dt} 之后的位置 */
     private static Aabb sweptBounds(RigidBody body, double dt) {
         double r = body.halfExtents.length();
         double ex = body.pos.x + body.linVel.x * dt;
@@ -286,7 +286,7 @@ public final class PhysicsWorld {
                 Math.max(body.pos.x, ex) + r, Math.max(body.pos.y, ey) + r, Math.max(body.pos.z, ez) + r);
     }
 
-    /** Eight corners plus six face centres. Enough coverage for 1-block world geometry. */
+    /** 八个角点加六个面心。对一格大小的世界几何体来说覆盖足够 */
     private static final int SAMPLE_COUNT = 14;
 
     private static void samplePoint(RigidBody body, int index, Vector3d out) {

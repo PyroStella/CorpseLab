@@ -9,15 +9,15 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 /**
- * A client reporting its own motion, so the impact trigger can see a real velocity.
+ * 客户端上报自己的运动状态，让撞击触发器能拿到真实速度
  *
- * <p>The server does not know how fast a player is moving with any precision - players are
- * client-authoritative about their own movement, and the server's delta is reconstructed
- * from position packets. Detecting "was going 30 blocks per second, now is not" therefore
- * has to start on the client.
+ * <p>服务端并不知道玩家移动得有多快，因为玩家对自己的移动拥有客户端权威
+ * 服务端只能从位置包反推位移增量，所以要检测
+ * “刚才还在每秒 30 格，现在不是了”这种情况
+ * 判断只能从客户端做起
  *
- * <p>Only sent while actually moving fast, plus a short tail so the stop itself is
- * reported, so this costs nothing during normal play.
+ * <p>只在确实高速移动时才发送，另外补一段短尾好让停下那一刻也被报上来
+ * 因此正常游玩时它不产生任何开销
  */
 public final class PlayerMotionPacket {
 

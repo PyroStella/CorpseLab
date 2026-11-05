@@ -23,16 +23,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Every setting the mod has, as a chest menu.
+ * 模组拥有的每一项设置，做成一个箱子菜单
  *
- * <p>Built on vanilla's six-row chest type rather than a menu type of its own, which means
- * there is no client-side code at all: the server decides what the items are and what a
- * click does, and any client draws it with the chest screen it already has. It also means
- * the menu cannot be lied to - a client can send clicks, but nothing it sends is trusted
- * past {@link #mayEdit}.
+ * <p>基于原版六排箱子类型而不是自带菜单类型，因此完全没有客户端代码
+ * 物品是什么、点击做什么都由服务端决定，任何客户端
+ * 用它本来就有的箱子界面就能画出来，这也意味着菜单骗不了
+ * 客户端可以发点击，但它发来的一切
+ * 都不会被信任到超出 {@link #mayEdit} 的范围
  *
- * <p>The rows are read from {@link ConfigRegistry}, so a setting added to the mod appears
- * here on its own, with its comment as the tooltip and its range enforced.
+ * <p>各行都从 {@link ConfigRegistry} 读取，所以模组里新加的设置
+ * 会自动出现在这里，注释即提示框，范围也会被强制执行
  */
 public final class ConfigMenu extends ChestMenu {
 
@@ -46,13 +46,13 @@ public final class ConfigMenu extends ChestMenu {
     private static final int SLOT_NEXT = 50;
     private static final int SLOT_CLOSE = 53;
 
-    /** The level vanilla requires for /gamerule, and what this requires to change anything. */
+    /** 原版 /gamerule 要求的等级，也是这里改动任何东西所需的等级 */
     public static final int PERMISSION_LEVEL = 2;
 
     private final SimpleContainer display;
     private final ServerPlayer viewer;
 
-    /** Null on the index page, otherwise the section being shown. */
+    /** 索引页上为 null，否则是当前显示的分区 */
     private String section;
     private int page;
 
@@ -70,17 +70,17 @@ public final class ConfigMenu extends ChestMenu {
             return menu;
         }, Component.literal("CorpseLab Settings")));
 
-        // The client's own settings live on the client, so they have to be asked for. The
-        // menu opens straight away and fills those rows in when the answer arrives.
+        // 客户端自己的设置存在客户端上，只能去问它。菜单先立刻打开
+        // 等答复到了再把那几行填上
         ClientSettings.request(player);
     }
 
-    /** Redraws an open menu, used when a player's client reports its settings. */
+    /** 重画已打开的菜单，用于玩家客户端上报设置时 */
     public void refresh() {
         rebuild();
     }
 
-    // ---- contents -------------------------------------------------------------------
+    // ---- 内容 ------------------------------------------------------------------------
 
     private List<ConfigRegistry.Entry> sectionEntries() {
         return ConfigRegistry.bySection().getOrDefault(section, List.of());
@@ -102,8 +102,8 @@ public final class ConfigMenu extends ChestMenu {
         }
         buildNavigation();
 
-        // The client predicted whatever the click looked like to it, so the whole menu is
-        // resent rather than only what changed.
+        // 客户端按它看到的点击做了预测，所以整份菜单重发一遍
+        // 而不是只发变化的部分
         sendAllDataToRemote();
     }
 
@@ -160,7 +160,7 @@ public final class ConfigMenu extends ChestMenu {
                 ChatFormatting.RED));
     }
 
-    // ---- values ---------------------------------------------------------------------
+    // ---- 取值 ------------------------------------------------------------------------
 
     private boolean mayEdit(ConfigRegistry.Entry entry) {
         if (!entry.serverSide()) {
@@ -169,7 +169,7 @@ public final class ConfigMenu extends ChestMenu {
         return viewer.hasPermissions(PERMISSION_LEVEL);
     }
 
-    /** Current value, or null for a client setting this player has not reported. */
+    /** 当前值；对这名玩家尚未上报的客户端设置则为 null */
     private String rawValue(ConfigRegistry.Entry entry) {
         if (entry.serverSide()) {
             return ConfigRegistry.encode(ConfigRegistry.get(entry));
@@ -190,10 +190,10 @@ public final class ConfigMenu extends ChestMenu {
     }
 
     /**
-     * How much one click moves a number.
+     * 一次点击能把数值挪动多少
      *
-     * <p>Scaled to the range, because these run from fractions of a block per second up to
-     * twenty-minute timeouts and a single step cannot suit both.
+     * <p>按范围大小缩放，因为这些值从每秒零点几格一直到二十分钟的超时
+     * 单一的步长没法同时伺候两头
      */
     private static double step(ConfigRegistry.Entry entry) {
         double span = entry.max() - entry.min();
@@ -219,21 +219,21 @@ public final class ConfigMenu extends ChestMenu {
         if (entry.kind() == ConfigRegistry.Kind.INTEGER) {
             write(entry, (int) Math.round(clamped));
         } else {
-            // Steps are round numbers, but floating point addition is not, so the value is
-            // snapped back to three decimals rather than drifting to 0.7500000000000001.
+            // 步长都是整齐的数，浮点加法却不是，所以把值重新吸附到三位小数
+            // 免得它漂成 0.7500000000000001
             write(entry, Math.round(clamped * 1000.0D) / 1000.0D);
         }
     }
 
-    // ---- input ----------------------------------------------------------------------
+    // ---- 输入 ------------------------------------------------------------------------
 
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         if (!(player instanceof ServerPlayer clicker) || clicker != viewer) {
             return;
         }
-        // Everything below the menu is the player's own inventory, and the menu never
-        // moves items, so those clicks are simply dropped.
+        // 菜单以下全是玩家自己的物品栏，而这个菜单从不搬动物品
+        // 所以那些点击直接丢弃
         if (slotId < 0 || slotId >= SIZE) {
             return;
         }
@@ -257,8 +257,8 @@ public final class ConfigMenu extends ChestMenu {
             deny();
             return;
         }
-        // A client setting whose value has not been reported yet: acting on it would be
-        // guessing at what it currently is.
+        // 这是值还没上报过的客户端设置：对它动手就等于
+        // 猜它现在是什么
         if (rawValue(entry) == null) {
             deny();
             return;
@@ -271,10 +271,13 @@ public final class ConfigMenu extends ChestMenu {
             write(entry, entry.defaultValue());
         } else if (entry.kind() == ConfigRegistry.Kind.BOOLEAN) {
             write(entry, !Boolean.parseBoolean(rawValue(entry)));
+        } else if (entry.kind() == ConfigRegistry.Kind.ENUM) {
+            // 枚举只有几个名字，点一下换下一个，不用另做界面
+            write(entry, ConfigRegistry.next(entry, rawValue(entry)));
         } else if (entry.min() != null) {
             adjust(entry, button == 1 ? -1 : 1, coarse);
         } else {
-            // Lists and free text cannot be nudged; the command edits those.
+            // 列表和自由文本没法这样微调，那些用命令来改
             deny();
             return;
         }
@@ -341,7 +344,7 @@ public final class ConfigMenu extends ChestMenu {
         viewer.playNotifySound(SoundEvents.VILLAGER_NO, SoundSource.MASTER, 0.4F, 1.0F);
     }
 
-    // ---- nothing here is a real container -------------------------------------------
+    // ---- 这里没有一样是真正的容器 ----------------------------------------------------
 
     @Override
     public ItemStack quickMoveStack(Player player, int slot) {

@@ -8,10 +8,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-/** A client telling the server what its own settings are currently set to. */
+/** 客户端告知服务端自己的设置当前是什么值 */
 public final class ClientSettingsPacket {
 
-    /** Enough for every client setting several times over, and small enough to be safe. */
+    /** 足以容纳全部客户端设置还有富余，同时小到不会出事 */
     private static final int MAX_ENTRIES = 128;
 
     private final Map<String, String> values;

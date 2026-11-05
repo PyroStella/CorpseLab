@@ -7,13 +7,13 @@ import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import java.util.HashMap;
 import java.util.Map;
 
-/** The client half of the settings menu: reports its own settings, and changes them. */
+/** 设置菜单的客户端部分：上报自己的设置，并修改它们 */
 public final class ClientSettingsHandler {
 
     private ClientSettingsHandler() {
     }
 
-    /** Sends every client-side setting and its current value to the server. */
+    /** 把每一项客户端设置及其当前值发送给服务端 */
     public static void report() {
         Map<String, String> values = new HashMap<>();
         for (ConfigRegistry.Entry entry : ConfigRegistry.entries()) {
@@ -26,8 +26,8 @@ public final class ClientSettingsHandler {
 
     public static void apply(String path, String value) {
         ConfigRegistry.Entry entry = ConfigRegistry.find(path);
-        // A server has no business setting anything but this player's own display
-        // settings, so anything else is dropped rather than trusted.
+        // 服务端除了这名玩家自己的显示设置，不该改动任何东西
+        // 所以其余的一律丢弃，而不采信
         if (entry == null || entry.serverSide()) {
             return;
         }

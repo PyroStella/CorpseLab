@@ -12,7 +12,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
-/** 服务端 → 客户端：新跟踪到一具尸体时，把它的骨架发过去。 */
+/** 服务端 → 客户端：新跟踪到一具尸体时，把它的骨架发过去 */
 public final class PlanSyncPacket {
 
     private final int entityId;

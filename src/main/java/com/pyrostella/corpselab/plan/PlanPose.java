@@ -9,17 +9,17 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * 死亡那一刻，模型各部件<b>正在做的动作</b>，折算成每个盒子的模型空间位姿。
+ * 死亡那一刻，模型各部件<b>正在做的动作</b>，折算成每个盒子的模型空间位姿
  *
- * <p>和 {@code ragdoll.LimbPose} 是同一个思路：布娃娃一开始就躺成“站着不动”的样子，
- * 看起来像换了一个人凭空出现；照着原版 {@code setupAnim} 的公式重算一遍，
+ * <p>和 {@code ragdoll.LimbPose} 是同一个思路：布娃娃一开始就躺成“站着不动”的样子
+ * 看起来像换了一个人凭空出现；照着原版 {@code setupAnim} 的公式重算一遍
  * 尸体就会保持奔跑、张望、下蹲的姿势摔出去。</p>
  *
  * <p>区别在于这里没有写死的人形部件表：部件按路径里的关键词分类
- * （{@code head} / {@code arm} / {@code leg} / {@code body}），所以僵尸、骷髅、四足生物都适用。
+ * （{@code head} / {@code arm} / {@code leg} / {@code body}），所以僵尸、骷髅、四足生物都适用
  * 姿势按原版层级累加：父部件的旋转会带动子部件，{@code hat} 才会跟着头转。</p>
  *
- * <p>单位：模型空间，原点在脚底，+Y 向上，数字是方块。旋转也用模型空间的轴，
+ * <p>单位：模型空间，原点在脚底，+Y 向上，数字是方块。旋转也用模型空间的轴
  * 交给 {@link PlanRagdoll} 时再做 Y 翻转。</p>
  */
 public final class PlanPose {
@@ -31,7 +31,7 @@ public final class PlanPose {
     private static final double SWING_SPEED = 0.6662D;
 
     /**
-     * 一个盒子的姿势：绕自己枢轴的旋转 + 枢轴在世界里的新位置。
+     * 一个盒子的姿势：绕自己枢轴的旋转 + 枢轴在世界里的新位置
      *
      * @param rot    模型空间累计旋转
      * @param origin 模型空间枢轴位置（已含父部件旋转与下蹲位移）
@@ -43,7 +43,7 @@ public final class PlanPose {
     }
 
     /**
-     * 算出每个盒子的姿势。
+     * 算出每个盒子的姿势
      *
      * @param plan   骨架
      * @param entity 死者；为 {@code null} 时返回零姿态（存档重建就走这条路，姿势已经被物理记住了）

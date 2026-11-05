@@ -4,13 +4,13 @@ import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
 /**
- * A ball-and-socket joint with a swing cone and a twist range.
+ * 带摆动锥和扭转范围的球窝关节
  *
- * <p>Each body carries a joint frame whose local X axis is the bone direction and whose
- * local Y axis is the twist reference. Swing is the angle between the two bone axes;
- * twist is rotation about them.</p>
+ * <p>每个刚体各带一个关节坐标系，其局部 X 轴是骨骼方向，局部
+ * Y 轴是扭转参考。摆动是两根骨骼轴之间的夹角，扭转则是绕这两根
+ * 轴的旋转</p>
  *
- * <p>两个锚点用软连接（{@link #compliance}）拉在一起，所以关节可以被自重和冲击拉开一点；
+ * <p>两个锚点用软连接（{@link #compliance}）拉在一起，所以关节可以被自重和冲击拉开一点
  * 被拉开的距离连续超过 {@link #breakDistance} 若干个 tick 就永久断开，那截肢体真的掉下来。</p>
  */
 public final class SphericalJoint implements Constraint {
@@ -29,12 +29,12 @@ public final class SphericalJoint implements Constraint {
     private final Vector3d localAnchorB = new Vector3d();
     private final Quaterniond localFrameB = new Quaterniond();
 
-    /** Half-angle of the swing cone, in radians. */
+    /** 摆动锥的半角，单位为弧度 */
     public double swingLimit = Math.toRadians(60.0D);
     public double minTwist = Math.toRadians(-30.0D);
     public double maxTwist = Math.toRadians(30.0D);
 
-    /** Inverse stiffness of the attachment. 0 is a rigid joint. */
+    /** 连接的逆刚度；0 表示刚性关节 */
     public double compliance = 0.0D;
 
     /** 锚点被拉开多少格就彻底断开；0 = 永不断开 */
@@ -65,7 +65,7 @@ public final class SphericalJoint implements Constraint {
         return this;
     }
 
-    /** 两个锚点现在的世界距离：刚性关节为 0，软关节就是被拉开的量。 */
+    /** 两个锚点现在的世界距离：刚性关节为 0，软关节就是被拉开的量 */
     public double anchorGap() {
         refreshFrames();
         return this.worldAnchorA.distance(this.worldAnchorB);
@@ -76,10 +76,10 @@ public final class SphericalJoint implements Constraint {
     }
 
     /**
-     * 每 tick 判一次是否该断。
+     * 每 tick 判一次是否该断
      *
      * <p>必须按 tick 判，不能放在 {@link #solvePosition} 里：限位是绕各自质心做的纯角度
-     * 修正，一发力就会把锚点甩开几厘米，同一子步后面的 {@code solveAttachment} 再把它拉回来。
+     * 修正，一发力就会把锚点甩开几厘米，同一子步后面的 {@code solveAttachment} 再把它拉回来
      * 那点瞬时距离只是限位在正常工作，按子步判会把脑袋这种力臂最长的关节判成断裂。</p>
      */
     public void updateBreak() {
@@ -105,9 +105,9 @@ public final class SphericalJoint implements Constraint {
         solveSwing(h);
         solveTwist(h);
 
-        // The limits rotate each body about its own centre of mass, which drags the anchor
-        // points apart. The attachment has to be solved against the post-limit frames or a
-        // loaded limit leaves a visible gap at the joint.
+        // 限位会让各刚体绕自身质心旋转，把两个锚点拉开，所以
+        // 连接必须在限位之后的坐标系下求解，否则满载的限位
+        // 会在关节处留下一道肉眼可见的缝隙
         refreshFrames();
         solveAttachment(h);
     }
@@ -132,7 +132,7 @@ public final class SphericalJoint implements Constraint {
         Vector3d axis = new Vector3d(axisA).cross(axisB);
         double length = axis.length();
         if (length < 1.0e-9D) {
-            // Bones are collinear: no swing to correct, and no valid rotation axis.
+            // 两根骨骼共线：没有摆动需要修正，也没有有效的旋转轴
             return;
         }
         axis.div(length);
@@ -152,7 +152,7 @@ public final class SphericalJoint implements Constraint {
         }
         axis.div(length);
 
-        // Project both twist references onto the plane perpendicular to the shared axis.
+        // 把两个扭转参考都投影到垂直于公共轴的平面上
         Vector3d refA = this.worldFrameA.transform(new Vector3d(TWIST_REF));
         refA.fma(-refA.dot(axis), axis);
         Vector3d refB = this.worldFrameB.transform(new Vector3d(TWIST_REF));

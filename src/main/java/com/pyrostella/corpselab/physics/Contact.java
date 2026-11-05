@@ -3,15 +3,15 @@ package com.pyrostella.corpselab.physics;
 import org.joml.Vector3d;
 
 /**
- * One sample point of a rigid body resting against one solid world box.
+ * 刚体抵靠某个世界实体方块的单个采样点
  *
- * <p>The normal is chosen once, when the contact is generated, and held for the whole step:
- * re-picking the least-penetrating axis every substep makes a body sitting on an edge flip
- * between normals and buzz.</p>
+ * <p>法线在接触生成时选定一次，之后在整个步长内保持不变
+ * 的原因很简单：每个子步都重新挑穿透最浅的轴，会让停在棱上的
+ * 刚体在几个法线之间来回翻转并抖动</p>
  */
 public final class Contact {
 
-    /** Blocks per second at which pre-existing overlap is pushed out. */
+    /** 已存在的重叠被推出的速度，单位为格每秒 */
     private static final double RECOVERY_SPEED = 2.0D;
 
     /** 冲击速度低于这个值时不反弹，否则躺在地上的尸体会一直颤 */
@@ -24,7 +24,7 @@ public final class Contact {
 
     public double staticFriction = 0.9D;
     public double dynamicFriction = 0.8D;
-    /** Flesh does not bounce. Kept configurable for tuning. */
+    /** 血肉不会反弹，保留可配置是为了调参 */
     public double restitution = 0.0D;
 
     private final Vector3d worldPoint = new Vector3d();
@@ -45,7 +45,7 @@ public final class Contact {
         this.normal.set(normal);
     }
 
-    /** Depth of {@code p} inside {@code box} measured along {@code normal}. Negative when outside. */
+    /** 点 {@code p} 沿 {@code normal} 方向深入 {@code box} 的深度。点在盒外时为负 */
     private static double depthAlong(Aabb box, Vector3d p, Vector3d n) {
         if (p.x < box.minX() || p.x > box.maxX()
                 || p.y < box.minY() || p.y > box.maxY()
@@ -76,11 +76,11 @@ public final class Contact {
         this.body.toWorld(this.localPoint, this.worldPoint);
         this.normalVelocityBefore = this.body.pointVelocity(this.worldPoint, this.scratch).dot(this.normal);
 
-        // Where this material point was at the start of the substep, for static friction.
+        // 该物质点在子步开始时的位置，供静摩擦使用
         this.prevWorldPoint.set(this.localPoint);
         this.body.prevRot.transform(this.prevWorldPoint).add(this.body.prevPos);
 
-        // 一个子步允许推出的总距离是"这点本子步陷进去的深度 + 固定的恢复速度"，
+        // 一个子步允许推出的总距离是"这点本子步陷进去的深度 + 固定的恢复速度"
         // 分摊到每一遍迭代上：冲击不会被每遍重复化解成过量弹射，后面几遍又还有余额
         // 把被关节拽回去的点重新推出来
         int slices = Math.max(1, passes);
@@ -95,12 +95,12 @@ public final class Contact {
         }
         this.active = true;
 
-        // Cap how much overlap is undone in one substep.
+        // 限制单个子步内补回多少重叠
         //
-        // Undoing a deep overlap all at once turns into velocity: the position solve
-        // derives speed from the distance moved, so ejecting a limb 0.4 blocks within a
-        // 3 ms substep hands it 128 blocks/s and fires it across the map. That happens for
-        // real whenever a body is driven into terrain or spawned inside a block.
+        // 一次性补回很深的穿透会转化成速度，因为位置求解从移动距离
+        // 反推速度：在 3 ms 的子步里把一条肢体弹出 0.4 格，等于给它
+        // 128 格每秒的速度，会把它甩到地图另一头。刚体被顶进地形、或者
+        // 生成在方块内部时，这种情况是真实会发生的
         double corrected = Math.min(depth, this.budget);
         if (corrected <= 0.0D) {
             return;
@@ -115,8 +115,8 @@ public final class Contact {
     }
 
     /**
-     * Static friction: undo the tangential drift of this material point since the substep
-     * began, up to the Coulomb limit. This is what stops a settled body sliding downhill.
+     * 静摩擦：撤销这个物质点自子步开始以来的切向漂移，上限是
+     * 库仑极限，也正是它让停稳的刚体不再往坡下溜
      */
     private void applyStaticFriction(double h, double corrected) {
         this.body.toWorld(this.localPoint, this.worldPoint);
@@ -135,7 +135,7 @@ public final class Contact {
                 slide.negate(), 0.0D, h, false);
     }
 
-    /** True when this contact is carrying weight from below, rather than a wall or ceiling. */
+    /** 该接触点是从下方承重、而不是墙面或天花板时为 true */
     boolean isSupporting() {
         return this.active && this.normal.y > 0.5D;
     }
@@ -151,12 +151,12 @@ public final class Contact {
 
         Vector3d dv = new Vector3d();
 
-        // Dynamic friction, bounded by the Coulomb cone against this substep's normal impulse.
+        // 动摩擦，按库仑锥用本子步的法向冲量限制
         //
-        // The normal impulse is the velocity we are about to cancel along the normal, not
-        // the accumulated position-level lambda: that lambda shrinks as the position solver
-        // spreads its budget over several iterations, and tying friction to it let free-mode
-        // corpses slide across the floor for tens of blocks.
+        // 这里的法向冲量是即将沿法向抵消掉的那部分速度，而不是
+        // 位置层面累积的 lambda：那个 lambda 会随着位置求解把预算
+        // 摊到多遍迭代上而缩小，摩擦一旦与它挂钩，自由模式的尸体
+        // 就会在地面上滑出几十格
         Vector3d tangent = new Vector3d(v).fma(-vn, this.normal);
         double speed = tangent.length();
         if (speed > 1.0e-9D) {
@@ -164,7 +164,7 @@ public final class Contact {
             dv.set(tangent).mul(-Math.min(limit, speed) / speed);
         }
 
-        // Restitution, suppressed for slow impacts or resting bodies jitter forever.
+        // 恢复系数，慢速冲击时抑制掉，否则停住的刚体会一直抖
         double bounce = Math.abs(this.normalVelocityBefore) < RESTITUTION_THRESHOLD
                 ? 0.0D
                 : this.restitution;

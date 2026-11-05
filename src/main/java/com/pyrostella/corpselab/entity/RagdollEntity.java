@@ -30,13 +30,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The ragdoll itself: a plain entity in ordinary world space that owns a physics
- * assembly on the server and carries its rider along.
+ * 布娃娃本身：普通世界空间里的一个普通 entity，在服务端持有
+ * 一套物理装配体，并带着自己的骑乘者一起移动
  *
- * <p>The player rides this entity, which is the decision that makes everything else
- * simple. Vanilla already keeps a passenger at its vehicle, already refuses to let a
- * passenger walk, and already points the camera at where the passenger is. None of the
- * teleporting, freezing or custom camera work the sub-level approach needs applies here.
+ * <p>玩家骑乘这个 entity，正是这个决定让其余一切都变得简单。原版
+ * 已经会把乘客固定在载具上，已经会拒绝让乘客行走，也已经会把
+ * 相机指向乘客所在的位置。子关卡方案所需的那套传送、冻结和
+ * 自定义相机工作，在这里一概都用不上
  */
 public class RagdollEntity extends Entity {
 
@@ -45,51 +45,51 @@ public class RagdollEntity extends Entity {
     private static final EntityDataAccessor<Optional<UUID>> OWNER =
             SynchedEntityData.defineId(RagdollEntity.class, EntityDataSerializers.OPTIONAL_UUID);
 
-    /** Synced so the controls hint can stop offering a key that would do nothing. */
+    /** 同步到客户端，好让操作提示不再提供一个按了也没反应的键 */
     private static final EntityDataAccessor<Boolean> CAN_GET_UP =
             SynchedEntityData.defineId(RagdollEntity.class, EntityDataSerializers.BOOLEAN);
 
-    /** Server side only. Null on the client, which just draws what it is sent. */
+    /** 仅服务端持有。客户端上为 null，客户端只绘制收到的内容 */
     private RagdollSkeleton skeleton;
 
-    /** Client side render state: snapshots in world space, played back on a delay. */
+    /** 客户端渲染状态：世界空间中的快照，延迟一段时间后回放 */
     private final PoseBuffer poseBuffer = new PoseBuffer(PART_COUNT);
 
     private int ticksAlive;
 
-    /** How quickly a roll reaches its target speed. A tick is 1/20 s, so this is brisk. */
+    /** 翻滚达到目标速度的快慢。一个 tick 是 1/20 秒，所以这个值已经算很快 */
     private static final double ACCELERATION = 0.25D;
 
-    /** How far off the line of sight a limb may sit and still be grabbed, in blocks. */
+    /** 肢体偏离视线多远仍可被抓住，单位为方块 */
     private static final double GRAB_PICK_RADIUS = 0.6D;
 
-    /** Latest roll input from the rider, replaced each time a packet arrives. */
+    /** 来自骑乘者的最新翻滚输入，每收到一个包就被替换一次 */
     private float rollStrafe;
     private float rollForward;
 
     private int impactDamageCooldown;
 
-    /** Consecutive ticks the body has been resting on something. */
+    /** 身体连续贴靠在某个物体上的 tick 数 */
     private int groundedTicks;
 
-    /** Who is holding this body, which limb, and since when. Server side only. */
+    /** 谁在抓着这具身体、抓的是哪个肢体、从何时开始。仅服务端 */
     private UUID grabberId;
     private int grabbedPart = -1;
 
-    /** Set while the mod is deliberately releasing the rider, so the guard lets it through. */
+    /** 在 mod 主动放开骑乘者期间置位，好让守卫放行这次下车 */
     private boolean releasing;
 
     public RagdollEntity(EntityType<? extends RagdollEntity> type, Level level) {
         super(type, level);
         this.noPhysics = true;
 
-        // Limbs are drawn up to a block beyond this entity's own small box, so leaving it
-        // to the frustum test makes a fast-moving body blink out for a frame or two as the
-        // box leaves the view while the limbs are still plainly on screen.
+        // 肢体最远会被画到超出这个 entity 自身小包围盒一个方块的位置，所以
+        // 如果交给视锥剔除去管，快速移动的身体就会消失一两帧：包围盒
+        // 已经移出视野，而肢体明明还清楚地留在屏幕上
         this.noCulling = true;
     }
 
-    /** Creates a ragdoll standing where the player is, and seats the player in it. */
+    /** 在玩家所在的位置生成一具布娃娃，并把玩家安置到它上面 */
     public static RagdollEntity spawnFor(Player player) {
         Level level = player.level();
         RagdollEntity ragdoll = new RagdollEntity(CorpseLabRegistry.RAGDOLL.get(), level);
@@ -98,8 +98,8 @@ public class RagdollEntity extends Entity {
         ragdoll.setPos(feet.x, feet.y, feet.z);
         ragdoll.entityData.set(OWNER, Optional.of(player.getUUID()));
 
-        // Start from the pose the player was actually drawn in, so a sprinting player's
-        // legs stay where they were instead of snapping to a neutral stance.
+        // 从玩家实际被绘制时的姿态开始，这样正在奔跑的玩家双腿会留在
+        // 原来的位置，而不是瞬间跳到中立站姿
         ragdoll.skeleton = new RagdollSkeleton(feet.x, feet.y, feet.z,
                 RagdollSkeleton.facingFromYaw(player.yBodyRot),
                 CorpseLabConfig.SERVER.partSelfCollision.get(),
@@ -107,8 +107,8 @@ public class RagdollEntity extends Entity {
         ragdoll.skeleton.setCollider(new LevelCollider(level));
         ragdoll.skeleton.world().maxSpeed = CorpseLabConfig.SERVER.maxLaunchSpeed.get();
 
-        // Carry the player's own motion into the ragdoll, so running off a ledge keeps
-        // going rather than dropping straight down.
+        // 把玩家自身的运动带进布娃娃里，这样从边沿跑出去的身体会
+        // 继续往前飞，而不是直接往下掉
         Vec3 motion = player.getDeltaMovement().scale(20.0D);
         ragdoll.skeleton.launch(new Vector3d(motion.x, motion.y, motion.z));
 
@@ -144,16 +144,16 @@ public class RagdollEntity extends Entity {
         ticksAlive++;
 
         if (level().isClientSide) {
-            // The entity is only an anchor for tracking and culling; every visible limb
-            // position comes from the pose packet in world coordinates. Pinning the
-            // previous position keeps its own box from lagging, which matters for
-            // culling but no longer for where the limbs are drawn.
+            // 这个 entity 只是追踪和剔除用的锚点，每个可见肢体的位置
+            // 都来自姿态包里的世界坐标。把上一帧的位置钉住，可以避免它
+            // 自己的包围盒滞后，这对剔除有意义，但对肢体画在哪里
+            // 已经没有影响了
             xOld = getX();
             yOld = getY();
             zOld = getZ();
 
-            // Promote the newest pose here rather than when its packet landed, so the two
-            // poses being blended are always consecutive ticks.
+            // 在这里而不是在包到达时把最新的姿态提为当前姿态，这样
+            // 参与混合的两份姿态永远来自相邻的 tick
             poseBuffer.onClientTick();
             return;
         }
@@ -166,7 +166,7 @@ public class RagdollEntity extends Entity {
         serverTick();
     }
 
-    /** The living ragdoll's behaviour: a rider who can squirm, get hurt, and get up. */
+    /** 活着的布娃娃的行为：一个能挣扎、会受伤、也能起身的骑乘者 */
     protected void serverTick() {
         applyRollInput();
         applyGrab();
@@ -186,8 +186,8 @@ public class RagdollEntity extends Entity {
     }
 
     /**
-     * Advances the simulation and moves the entity to follow the body, so vanilla tracking
-     * and chunk loading stay correct without any special handling.
+     * 推进模拟，并让 entity 跟着身体移动，这样原版的追踪和区块
+     * 加载都不用特殊处理就仍然正确
      */
     protected void stepPhysics() {
         skeleton.tick();
@@ -201,7 +201,7 @@ public class RagdollEntity extends Entity {
                 RagdollPosePacket.of(this));
     }
 
-    /** Sends the current pose to one player, for a body that is not moving any more. */
+    /** 把当前姿态发给单个玩家，用于已经不再移动的身体 */
     public void sendPoseTo(net.minecraft.server.level.ServerPlayer player) {
         if (skeleton == null) {
             return;
@@ -215,11 +215,11 @@ public class RagdollEntity extends Entity {
     }
 
     /**
-     * Takes hold of one limb. The part is chosen by the server from the grabber's own
-     * look direction, so a client cannot claim to have grabbed something it is not
-     * looking at, or something across the map.
+     * 抓住一个肢体。具体是哪个部位由服务端依据抓取者自己的视线
+     * 方向选出，客户端因此无法声称抓住了自己没看的东西，也无法
+     * 声称抓住了地图另一头的东西
      *
-     * @return true if a limb was within reach
+     * @return 若某个肢体在可及范围内则返回 true
      */
     public boolean tryGrab(Player grabber) {
         if (skeleton == null || !CorpseLabConfig.SERVER.grabEnabled.get()) {
@@ -242,7 +242,7 @@ public class RagdollEntity extends Entity {
                 continue;
             }
 
-            // How far the limb sits from the line of sight, and how near it is along it.
+            // 肢体偏离视线多远，以及它沿视线方向有多近
             double offAxis = toPart.subtract(look.scale(along)).length();
             if (offAxis > GRAB_PICK_RADIUS || along >= bestDistance) {
                 continue;
@@ -265,7 +265,7 @@ public class RagdollEntity extends Entity {
         grabbedPart = -1;
     }
 
-    /** True while somebody is holding this body. */
+    /** 有人正抓着这具身体时为 true */
     public boolean isGrabbed() {
         return grabbedPart >= 0 && grabberId != null;
     }
@@ -275,11 +275,11 @@ public class RagdollEntity extends Entity {
     }
 
     /**
-     * Drags the held limb toward the grabber's hand.
+     * 把被抓住的肢体拖向抓取者的手
      *
-     * <p>Velocity is steered rather than the position being set outright, so the body
-     * still collides with the world on the way: a corpse dragged into a wall catches on
-     * it instead of passing through, falls behind the hand, and the grip breaks.
+     * <p>这里调的是速度，而不是直接把位置设过去，身体在移动途中
+     * 因此仍会与世界碰撞：被拖进墙里的尸体会卡在墙上而不是穿
+     * 过去，于是落在手的后面，抓握随即断开
      */
     protected void applyGrab() {
         if (grabbedPart < 0 || grabberId == null) {
@@ -307,18 +307,18 @@ public class RagdollEntity extends Entity {
         body.linVel.set(delta.x * strength, delta.y * strength, delta.z * strength);
     }
 
-    /** Records roll input from the rider's client. */
+    /** 记录骑乘者客户端发来的翻滚输入 */
     public void setRollInput(float strafe, float forward) {
         this.rollStrafe = strafe;
         this.rollForward = forward;
     }
 
     /**
-     * Lets a downed player squirm.
+     * 让倒地的玩家能挣扎
      *
-     * <p>The input direction becomes a spin about the horizontal axis across it, which is
-     * what rolling actually is - shoving the body along the direction instead just makes
-     * it skate.
+     * <p>输入方向会被转成绕其横向水平轴的旋转，翻滚实际上做的
+     * 就是这个；如果换成沿输入方向直接推身体，只会让它在地上
+     * 打滑
      */
     private void applyRollInput() {
         if (!CorpseLabConfig.SERVER.rollEnabled.get()) {
@@ -331,7 +331,7 @@ public class RagdollEntity extends Entity {
         double strafe = rollStrafe;
         double forward = rollForward;
 
-        // Input is consumed, so releasing the key stops the roll even if no packet says so.
+        // 输入会被消费掉，所以松开按键就能停下翻滚，即使没有包来说这件事
         rollStrafe = 0.0F;
         rollForward = 0.0F;
 
@@ -343,7 +343,7 @@ public class RagdollEntity extends Entity {
         double sin = Math.sin(yaw);
         double cos = Math.cos(yaw);
 
-        // Minecraft yaw 0 faces +Z, so forward is (-sin, 0, cos) and right is (cos, 0, sin).
+        // Minecraft 的 yaw 为 0 时朝向 +Z，所以前方是 (-sin, 0, cos)、右方是 (cos, 0, sin)
         Vector3d direction = new Vector3d(
                 -sin * forward + cos * strafe,
                 0.0D,
@@ -354,20 +354,20 @@ public class RagdollEntity extends Entity {
         }
         direction.normalize();
 
-        // Squirming is not a push the ground can resist, so it is not modelled as one.
+        // 挣扎不是一个地面能抵抗的推力，所以这里也不按推力来建模
         //
-        // Two earlier attempts failed, both measured rather than guessed. Torque alone does
-        // nothing: a flat torso spun about a horizontal axis just rocks, because friction and
-        // five attached limbs anchor it, and the spin is re-absorbed every tick (angular
-        // velocity held at 4 rad/s while the body moved 0.0006 blocks over 4 ticks). Adding
-        // velocity fails for the same reason from the other side: the contact solver's
-        // friction budget is proportional to the normal impulse and comfortably exceeds a
-        // walking-pace push, so it cancels the injection inside the same tick.
+        // 之前两次尝试都失败了，两次都是实测出来的，不是猜的。只加力矩毫无
+        // 作用：平躺的躯干绕水平轴一转只是晃一下，因为摩擦和五条连着
+        // 的肢体把它固定住了，而且每 tick 旋转都会被重新吸收掉（角速度
+        // 维持在 4 rad/s，身体在 4 个 tick 里只移动了 0.0006 个方块）
+        // 而直接给速度会从另一个方向败在同一个原因上：接触求解器的
+        // 摩擦预算与法向冲量成正比，轻松超过一次步行速度的推力，于是
+        // 它在同一个 tick 之内就把注入抵消掉了
         //
-        // A player dragging themselves along is levering against the ground, not sliding on
-        // it, so the body is stepped directly. This runs before the solve, so the substep
-        // integrator captures it as the new resting position rather than as a velocity
-        // spike, and contacts still stop the body dead against a wall.
+        // 玩家拖着自己往前，是在撬地面而不是在地面上滑动，所以
+        // 身体直接被平移。这段代码跑在求解之前，于是子步积分器会
+        // 把它当成新的静止位置记录下来，而不是当成一次速度
+        // 尖峰，同时接触依然能把身体死死挡在墙上
         double step = CorpseLabConfig.SERVER.rollSpeed.get() / 20.0D;
         Vector3d axis = new Vector3d(0.0D, 1.0D, 0.0D).cross(direction);
 
@@ -377,11 +377,11 @@ public class RagdollEntity extends Entity {
             body.pos.z += direction.z * step;
         }
 
-        // Cosmetic only: makes the body tumble along instead of gliding.
+        // 纯视觉效果：让身体翻滚着走，而不是平滑滑行
         skeleton.torso().angVel.fma(CorpseLabConfig.SERVER.rollSpin.get(), axis);
     }
 
-    /** Hurts the rider when their body is slammed into something hard. */
+    /** 在骑乘者的身体被狠狠撞到硬物上时对其造成伤害 */
     private void applyImpactDamage() {
         CorpseLabConfig.Server config = CorpseLabConfig.SERVER;
         if (!config.impactDamageEnabled.get()) {
@@ -407,16 +407,16 @@ public class RagdollEntity extends Entity {
             return;
         }
 
-        // A vanilla damage type, so no data-driven damage type registration is needed.
-        // Being hurt while already down cannot start another ragdoll, because a player
-        // with a vehicle is never eligible.
+        // 用一个原版伤害类型，这样就不需要注册数据驱动的伤害类型
+        // 已经在倒地状态再受伤不会开启新的布娃娃，因为身上挂着
+        // 载具的玩家永远不满足条件
         rider.hurt(damageSources().flyIntoWall(), (float) damage);
         impactDamageCooldown = config.impactDamageCooldownTicks.get();
     }
 
-    /** @return true when the ragdoll ended this tick */
+    /** @return 若布娃娃在本 tick 结束则返回 true */
     private boolean checkExpiry() {
-        // A dead rider must not be left riding a body.
+        // 死掉的骑乘者不能被留在身体上继续骑着
         if (getFirstPassenger() instanceof Player rider && !rider.isAlive()) {
             getUp();
             return true;
@@ -433,7 +433,7 @@ public class RagdollEntity extends Entity {
         return false;
     }
 
-    /** Throws the whole assembly, clamped so nothing leaves the world. */
+    /** 把整套装配体抛出去，并做限幅，确保没有部件飞出世界 */
     public void launch(Vec3 velocity) {
         if (skeleton == null) {
             return;
@@ -443,21 +443,21 @@ public class RagdollEntity extends Entity {
         skeleton.launch(new Vector3d(clamped.x, clamped.y, clamped.z));
     }
 
-    /** True while this ragdoll is deliberately letting its rider go. */
+    /** 这具布娃娃正主动放开骑乘者时为 true */
     public boolean isReleasing() {
         return releasing;
     }
 
-    /** Ends the ragdoll, standing the rider back up where the body came to rest. */
+    /** 结束这具布娃娃，让骑乘者在身体停下的位置重新站起来 */
     public void getUp() {
-        // The dismount guard blocks a player leaving early, so the mod has to announce
-        // its own release or it would block itself.
+        // 下车守卫会拦下玩家提前离开，所以 mod 必须自己声明这次
+        // 释放，否则它会把自己也拦下
         releasing = true;
 
         Entity rider = getFirstPassenger();
         if (rider != null) {
             rider.stopRiding();
-            // Place them on their feet at the body, not inside it.
+            // 让玩家站在身体上，而不是陷进身体里
             rider.teleportTo(getX(), getY() + 0.1D, getZ());
             rider.setDeltaMovement(Vec3.ZERO);
         }
@@ -465,11 +465,11 @@ public class RagdollEntity extends Entity {
     }
 
     /**
-     * Tracks how long the body has been down.
+     * 统计身体已经倒在地上多久
      *
-     * <p>The counter resets the moment the body leaves the ground, so a body that clips a
-     * ledge on the way past, or bounces, has to settle properly before its player can
-     * rise.
+     * <p>身体一离开地面计数就会归零，所以擦过边沿或者在
+     * 途中弹了一下的身体，必须先真正稳定下来，它的玩家
+     * 才能起来
      */
     private void updateGrounded() {
         if (skeleton.isGrounded()) {
@@ -490,7 +490,7 @@ public class RagdollEntity extends Entity {
         return groundedTicks >= CorpseLabConfig.SERVER.groundedTicksBeforeGetUp.get();
     }
 
-    /** Client-visible copy of {@link #canGetUp()}, for the controls hint. */
+    /** {@link #canGetUp()} 的客户端可见副本，供操作提示使用 */
     public boolean canGetUpSynced() {
         return entityData.get(CAN_GET_UP);
     }
@@ -500,12 +500,12 @@ public class RagdollEntity extends Entity {
         if (!hasPassenger(passenger)) {
             return;
         }
-        // Sit the rider just above the body's centre of mass.
+        // 让骑乘者坐在身体质心的正上方
         //
-        // Not below it: a prone ragdoll's centre sits about a fifth of a block off the
-        // ground, so an offset downwards puts the rider inside the floor, the third-person
-        // camera collides with terrain and pulls in tight, and the player ends up staring
-        // at their own head from two inches away.
+        // 不能放在它下方：趴着的布娃娃质心离地大约五分之一个方块，向下
+        // 偏一点就会把骑乘者塞进地板里，第三人称相机会和地形碰撞
+        // 并被拉得很近，最后玩家看到的就只有贴在自己两英寸外
+        // 的自己脑袋
         moveFunction.accept(passenger, getX(), getY() + 0.2D, getZ());
     }
 
@@ -516,7 +516,7 @@ public class RagdollEntity extends Entity {
 
     @Override
     public void lerpTo(double x, double y, double z, float yaw, float pitch, int steps, boolean teleport) {
-        // Snap rather than interpolate, for the reason described in tick().
+        // 直接对齐而不做插值，原因见 tick() 中的说明
         setPos(x, y, z);
         setRot(yaw, pitch);
     }
@@ -536,7 +536,7 @@ public class RagdollEntity extends Entity {
         return false;
     }
 
-    /** Called by the client when a pose snapshot arrives. Offsets are relative to the anchor. */
+    /** 客户端收到一份姿态快照时调用。偏移量相对于锚点 */
     public void applyPose(double anchorX, double anchorY, double anchorZ,
                           Vector3f[] positions, Quaternionf[] rotations) {
         Vec3[] world = new Vec3[PART_COUNT];
@@ -554,32 +554,32 @@ public class RagdollEntity extends Entity {
     }
 
     /**
-     * Resolves the pose to draw this frame. Call once before reading any part, so the
-     * renderer and the camera agree on the same instant.
+     * 解析出本帧要绘制的姿态。在读任何部件之前先调用一次，好让
+     * 渲染器和相机取到同一时刻的姿势
      */
     public void samplePose(float partialTick) {
         poseBuffer.sample(partialTick);
     }
 
-    /** World position of a part, from the sampled pose. */
+    /** 某个部件在世界中的位置，取自采样后的姿态 */
     public Vec3 partWorldPosition(int index) {
         return poseBuffer.position(index);
     }
 
-    /** Orientation of a part, from the sampled pose. */
+    /** 某个部件的朝向，取自采样后的姿态 */
     public Quaternionf partRotation(int index, Quaternionf dest) {
         return poseBuffer.rotation(index, dest);
     }
 
-    /** Server-side body transform, used when building a pose packet. */
+    /** 服务端的刚体变换，用于构建姿态包 */
     public RigidBody body(int index) {
         return skeleton.part(BodyPart.values()[index]);
     }
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
-        // Ragdolls are transient. A saved one has no physics state worth restoring, and
-        // reviving it would leave a body with no rider lying in the world.
+        // 布娃娃是临时实体。存档下来也没有值得恢复的物理状态，而复活
+        // 它只会在世界里留下一具没有骑乘者的身体
         discard();
     }
 
@@ -598,7 +598,7 @@ public class RagdollEntity extends Entity {
     }
 
     static {
-        // Fail loudly during development if the model and the packet disagree.
+        // 如果在开发期间模型和包对不上，就大声报错
         if (PART_COUNT != 6) {
             CorpseLab.LOGGER.warn("Ragdoll part count is {}, expected 6", PART_COUNT);
         }

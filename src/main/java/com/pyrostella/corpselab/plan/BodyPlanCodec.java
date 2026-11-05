@@ -6,11 +6,11 @@ import java.util.List;
 import net.minecraft.network.FriendlyByteBuf;
 
 /**
- * {@link BodyPlan} 的网络编解码。
+ * {@link BodyPlan} 的网络编解码
  *
  * <p>计划很小（十几个盒子），直接全量发，不做增量。</p>
  *
- * <p>带格式号：盒子多了枢轴三点，旧格式（没有枢轴）读进来会错位，
+ * <p>带格式号：盒子多了枢轴三点，旧格式（没有枢轴）读进来会错位
  * 所以开头写一个 magic，读到不认识的就抛异常，让调用方自己处理。</p>
  */
 public final class BodyPlanCodec {

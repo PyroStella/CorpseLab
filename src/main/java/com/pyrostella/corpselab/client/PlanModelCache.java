@@ -18,9 +18,9 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * 客户端缓存：生物类型 → 模型部件表。
+ * 客户端缓存：生物类型 → 模型部件表
  *
- * <p>渲染尸体时要把刚体变换套回原模型，所以需要三样东西：模型的 {@code EntityModel}、
+ * <p>渲染尸体时要把刚体变换套回原模型，所以需要三样东西：模型的 {@code EntityModel}
  * 每个盒子对应的 {@code ModelPart}、以及一个能取贴图用的实体实例（贴图要靠实体算）。</p>
  *
  * <p>这个缓存只在客户端存在，服务端完全不知道模型长什么样。</p>

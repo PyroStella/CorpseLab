@@ -8,17 +8,17 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Stops a downed player leaving their ragdoll before they are allowed to.
+ * 阻止已倒下的玩家在允许之前离开自己的布娃娃
  *
- * <p>Gating the mod's own get-up packet was not enough. Sneaking is vanilla's universal
- * "leave the vehicle" gesture, and it never consults this mod, so holding shift through
- * an explosion - or tapping it on the way into the air - dismounted the player instantly
- * and cancelled the launch. Every dismount route ends at {@code removeVehicle}, which is
- * where this event fires, so guarding here covers all of them at once.
+ * <p>只给模组自己的起身数据包加限制还不够。潜行是原版通用的
+ * "离开载具"手势，它从不询问本模组，于是在爆炸中按住 Shift，或者在
+ * 飞向空中的途中轻点一下，玩家都会立即下马并取消这次抛射。所有下马路径
+ * 最终都走到 {@code removeVehicle}，本事件正是在那里触发，所以在这里
+ * 拦截即可一次覆盖全部路径
  *
- * <p>The dangerous failure here is the opposite one: a cancelled dismount that should
- * have gone through leaves a player welded to a body forever. Anything that is not a
- * player choosing to stand up early is therefore let through.
+ * <p>这里真正危险的失败是相反的一种：一次本应放行的下马被取消
+ * 会让玩家永远被焊死在一具身体上。因此任何不属于
+ * 玩家主动提前起身的下马都会被放行
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class RagdollDismountGuard {
@@ -38,9 +38,9 @@ public final class RagdollDismountGuard {
             return;
         }
 
-        // Let through anything that is not a player choosing to rise early: the mod
-        // releasing them, the ragdoll going away, a dead rider, or a rider being removed
-        // because they are logging out or changing dimension.
+        // 放行一切不属于玩家主动提前起身的情况：模组主动释放
+        // 布娃娃被移除、骑手已死亡，或者骑手因为退出游戏
+        // 或切换维度而被移除
         if (ragdoll.isReleasing() || ragdoll.isRemoved() || rider.isRemoved() || !rider.isAlive()) {
             return;
         }

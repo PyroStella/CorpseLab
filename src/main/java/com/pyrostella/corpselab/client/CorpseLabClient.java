@@ -27,7 +27,7 @@ public final class CorpseLabClient {
     private CorpseLabClient() {
     }
 
-    /** Mod-bus registration: keybinds and renderers. */
+    /** Mod 总线注册：按键绑定与渲染器 */
     @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class Setup {
 
@@ -45,8 +45,8 @@ public final class CorpseLabClient {
 
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            // Read the RegistryObject directly: this event fires before common setup, so
-            // anything populated there is not available yet.
+            // 直接读 RegistryObject：这个事件早于 common setup 触发，其中
+            // 填入的东西此刻都还不可用
             event.registerEntityRenderer(CorpseLabRegistry.RAGDOLL.get(), RagdollEntityRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.CORPSE.get(), RagdollEntityRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.MOB_CORPSE.get(), MobCorpseRenderer::new);
@@ -54,14 +54,14 @@ public final class CorpseLabClient {
         }
     }
 
-    /** Forge-bus gameplay hooks. */
+    /** Forge 总线的玩法钩子 */
     @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, value = Dist.CLIENT)
     public static final class Hooks {
 
-        /** Speed, in blocks per second, above which motion is worth reporting. */
+        /** 速度阈值，单位为格每秒，超过它才值得上报运动 */
         private static final double REPORT_SPEED = 8.0D;
 
-        /** Ticks to keep reporting after slowing down, so the stop itself is sent. */
+        /** 减速后继续上报的 tick 数，好让停下这个动作也被发出去 */
         private static final int TAIL_TICKS = 5;
 
         private static int reportTail;
@@ -102,12 +102,12 @@ public final class CorpseLabClient {
             }
         }
 
-        /** Whether the grab key was down last tick, so only changes are sent. */
+        /** 上一 tick 抓取键是否按下，这样只发送变化 */
         private static boolean grabbing;
 
         /**
-         * Grabbing is a held key, but sending it every tick would be wasteful, so only the
-         * press and the release go over the wire.
+         * 抓取是按住生效的键，但每 tick 都发太浪费，所以只有按下
+         * 和松开这两个变化会走网络
          */
         private static void reportGrab() {
             boolean down = CorpseLabKeybinds.GRAB.isDown();
@@ -119,9 +119,9 @@ public final class CorpseLabClient {
         }
 
         /**
-         * Feeds the impact trigger. The server cannot measure a player's speed accurately,
-         * so the client reports it - but only while moving fast, plus a short tail so the
-         * sudden stop that defines an impact is actually in the data.
+         * 为撞击触发器提供输入。服务端无法准确测量玩家的速度，所以由客户端
+         * 上报，但只在高速移动时上报，并额外带一小段尾巴，好让定义撞击的
+         * 那次急停真正落在数据里
          */
         private static void reportMotion(Minecraft minecraft, boolean ragdolled) {
             if (ragdolled) {
@@ -148,12 +148,12 @@ public final class CorpseLabClient {
         }
 
         /**
-         * Hide vanilla's first-person viewmodel while ragdolled.
+         * 变成布娃娃期间隐藏原版的第一人称手持模型
          *
-         * <p>The hands and held item are drawn at a fixed place in front of the camera,
-         * which made no sense once the camera is inside a tumbling head: the player saw
-         * their real arms and item lying with the body and a second, static pair floating
-         * over the top of them.
+         * <p>手和手持物品都画在摄像机前方一个固定位置，一旦摄像机进到
+         * 翻滚的脑袋里，这就毫无道理了。玩家会看到自己真实的手臂和物品
+         * 跟着身体躺在地上，同时还有第二套手臂和物品
+         * 静止地浮在它们上方
          */
         @SubscribeEvent
         public static void onRenderHand(RenderHandEvent event) {
@@ -164,8 +164,8 @@ public final class CorpseLabClient {
         }
 
         /**
-         * Hide the standing player model while they are a ragdoll. Without this the
-         * player renders upright inside their own flopped body.
+         * 玩家变成布娃娃期间隐藏站立的玩家模型。否则玩家会直挺挺地
+         * 渲染在自己瘫倒的身体内部
          */
         @SubscribeEvent
         public static void onRenderPlayer(RenderPlayerEvent.Pre event) {
@@ -174,9 +174,9 @@ public final class CorpseLabClient {
                 return;
             }
 
-            // Vanilla keeps drawing a dead player toppling over for its death animation,
-            // which lands on top of the corpse: two bodies in one place, one tipping
-            // through the other. The body is the death animation now.
+            // 原版会继续为死亡动画绘制正在倒下的玩家，这一幕正好落在尸体上
+            // 于是同一处出现两具身体，一具还在穿过另一具。现在尸体本身
+            // 就是死亡动画
             if (event.getEntity().deathTime > 0
                     && CorpseLabConfig.CLIENT.hideVanillaDeathAnimation.get()) {
                 event.setCanceled(true);

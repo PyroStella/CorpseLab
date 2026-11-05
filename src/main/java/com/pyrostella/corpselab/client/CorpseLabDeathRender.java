@@ -11,10 +11,10 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Hides vanilla's death animation for anything that leaves a body behind.
+ * 对任何会留下尸体的生物隐藏原版的死亡动画
  *
- * <p>Otherwise the dying mob keeps toppling over on top of its own corpse: two bodies in
- * the same place, one tipping through the other.
+ * <p>否则垂死的生物会不断倒在自己的尸体上，同一处出现两具身体
+ * 其中一具还在穿过另一具
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, value = Dist.CLIENT)
 public final class CorpseLabDeathRender {

@@ -26,26 +26,26 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Server-side control of every setting the mod has.
+ * 服务端侧控制模组拥有的每一项设置
  *
- * <p>Gated at permission level 2, the same bar vanilla uses for gamerules and other
- * commands that change how a world behaves: on a server only operators can reach any of
- * it, and in single player it is available once cheats are on.
+ * <p>门槛设在权限等级 2，与原版给游戏规则以及其他改变世界行为方式的
+ * 命令所设的门槛一致：在服务器上只有管理员能碰到其中任何一项
+ * 在单人游戏里则要开启作弊之后才可用
  *
- * <p>Every option is discovered from {@link ConfigRegistry}, so the completions and the
- * value parsing follow the config automatically rather than being restated here.
+ * <p>每个选项都从 {@link ConfigRegistry} 发现，所以补全和
+ * 值解析都会自动跟随配置，而不必在这里再复述一遍
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class CorpseLabCommand {
 
-    /** The same level vanilla requires for /gamerule. */
+    /** 与原版 /gamerule 要求的等级相同 */
     private static final int PERMISSION_LEVEL = 2;
 
     /**
-     * Only server settings are reachable from here.
+     * 从这里只能碰到服务端设置
      *
-     * <p>Client settings belong to each player's own game, and on a dedicated server the
-     * client file is never loaded at all, so reading one would throw.
+     * <p>客户端设置属于每个玩家自己的游戏，而在专用服务端上
+     * 客户端文件根本不会被加载，读它就会抛异常
      */
     private static List<ConfigRegistry.Entry> settings() {
         return ConfigRegistry.entries().stream().filter(ConfigRegistry.Entry::serverSide).toList();
@@ -64,9 +64,9 @@ public final class CorpseLabCommand {
     }
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        // The menu itself is open to everyone: it is the only way a player can reach
-        // their own display settings in game, and it refuses every server setting to
-        // anyone without the permission level. Editing by command is operators only.
+        // 菜单本身对所有人开放：这是玩家在游戏里碰到自己显示设置的
+        // 唯一途径，而它对没有权限等级的人拒绝一切服务端设置
+        // 用命令编辑则仅限管理员
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("corpselab");
 
         root.then(Commands.literal("config")
@@ -90,8 +90,8 @@ public final class CorpseLabCommand {
                 .requires(source -> source.hasPermission(PERMISSION_LEVEL))
                 .then(Commands.argument("setting", StringArgumentType.string())
                         .suggests(SETTINGS)
-                        // Numbers and booleans are separate branches so Brigadier can
-                        // validate and complete each properly rather than taking a string.
+                        // 数字和布尔各自成为一条分支，这样 Brigadier 能
+                        // 分别正确校验和补全，而不是当成字符串收下
                         .then(Commands.argument("number", DoubleArgumentType.doubleArg())
                                 .executes(context -> set(context, DoubleArgumentType.getDouble(context, "number"))))
                         .then(Commands.argument("flag", BoolArgumentType.bool())
@@ -122,7 +122,7 @@ public final class CorpseLabCommand {
         return 1;
     }
 
-    /** Sections that hold at least one server setting, in declaration order. */
+    /** 至少含一项服务端设置的分区，保持声明顺序 */
     private static Map<String, List<ConfigRegistry.Entry>> sections() {
         Map<String, List<ConfigRegistry.Entry>> grouped = new LinkedHashMap<>();
         for (ConfigRegistry.Entry entry : settings()) {
@@ -189,8 +189,10 @@ public final class CorpseLabCommand {
 
         Object value = coerce(entry, raw);
         if (value == null) {
-            context.getSource().sendFailure(Component.literal(
-                    entry.path() + " expects " + entry.kind().name().toLowerCase() + "."));
+            String expects = entry.kind() == ConfigRegistry.Kind.ENUM
+                    ? "one of " + String.join(", ", ConfigRegistry.options(entry))
+                    : entry.kind().name().toLowerCase();
+            context.getSource().sendFailure(Component.literal(entry.path() + " expects " + expects + "."));
             return 0;
         }
 
@@ -207,7 +209,7 @@ public final class CorpseLabCommand {
         return 1;
     }
 
-    /** Turns a loosely typed command argument into the type the setting actually holds. */
+    /** 把松散类型的命令参数转成设置真正持有的类型 */
     private static Object coerce(ConfigRegistry.Entry entry, Object raw) {
         return switch (entry.kind()) {
             case BOOLEAN -> raw instanceof Boolean flag ? flag
@@ -218,6 +220,7 @@ public final class CorpseLabCommand {
                     ? List.of(text.split("\\s*,\\s*"))
                     : null;
             case STRING -> String.valueOf(raw);
+            case ENUM -> ConfigRegistry.parseEnum(entry, String.valueOf(raw));
         };
     }
 

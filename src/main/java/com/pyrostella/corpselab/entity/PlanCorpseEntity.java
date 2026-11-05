@@ -35,9 +35,9 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.PacketDistributor;
 
 /**
- * 用通用骨架驱动的尸体实体。
+ * 用通用骨架驱动的尸体实体
  *
- * <p>服务端持有 {@link PlanRagdoll} 跑物理，每个 tick 把各刚体的位姿发给跟踪者；
+ * <p>服务端持有 {@link PlanRagdoll} 跑物理，每个 tick 把各刚体的位姿发给跟踪者
  * 客户端只负责把这些位姿画出来（当前是线框，后续换成模型部件）。</p>
  */
 public class PlanCorpseEntity extends Entity {
@@ -67,7 +67,7 @@ public class PlanCorpseEntity extends Entity {
     }
 
     /**
-     * 服务端生成一具尸体。
+     * 服务端生成一具尸体
      *
      * @param level   服务端世界
      * @param plan    骨架
