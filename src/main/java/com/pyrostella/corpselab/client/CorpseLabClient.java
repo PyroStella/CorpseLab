@@ -3,21 +3,13 @@ package com.pyrostella.corpselab.client;
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.CorpseLabRegistry;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.entity.RagdollEntity;
-import com.pyrostella.corpselab.net.RagdollActionPacket;
-import com.pyrostella.corpselab.net.PlayerMotionPacket;
 import com.pyrostella.corpselab.net.RagdollGrabPacket;
-import com.pyrostella.corpselab.net.RagdollInputPacket;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.client.event.RenderHandEvent;
 import net.minecraftforge.client.event.RenderPlayerEvent;
-import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -33,21 +25,11 @@ public final class CorpseLabClient {
 
         @SubscribeEvent
         public static void registerKeys(RegisterKeyMappingsEvent event) {
-            event.register(CorpseLabKeybinds.RAGDOLL);
             event.register(CorpseLabKeybinds.GRAB);
         }
 
         @SubscribeEvent
-        public static void registerOverlays(RegisterGuiOverlaysEvent event) {
-            event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "corpselab_controls",
-                    ControlsHintOverlay.INSTANCE);
-        }
-
-        @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            // 直接读 RegistryObject：这个事件早于 common setup 触发，其中
-            // 填入的东西此刻都还不可用
-            event.registerEntityRenderer(CorpseLabRegistry.RAGDOLL.get(), RagdollEntityRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.CORPSE.get(), RagdollEntityRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.MOB_CORPSE.get(), MobCorpseRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.PLAN_CORPSE.get(), PlanCorpseRenderer::new);
@@ -57,14 +39,6 @@ public final class CorpseLabClient {
     /** Forge 总线的玩法钩子 */
     @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, value = Dist.CLIENT)
     public static final class Hooks {
-
-        /** 速度阈值，单位为格每秒，超过它才值得上报运动 */
-        private static final double REPORT_SPEED = 8.0D;
-
-        /** 减速后继续上报的 tick 数，好让停下这个动作也被发出去 */
-        private static final int TAIL_TICKS = 5;
-
-        private static int reportTail;
 
         @SubscribeEvent
         public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -76,30 +50,7 @@ public final class CorpseLabClient {
                 return;
             }
 
-            boolean ragdolled = minecraft.player.getVehicle() instanceof RagdollEntity;
-
-            reportMotion(minecraft, ragdolled);
             reportGrab();
-
-            while (CorpseLabKeybinds.RAGDOLL.consumeClick()) {
-                if (!ragdolled) {
-                    CorpseLabNetwork.CHANNEL.sendToServer(
-                            new RagdollActionPacket(RagdollActionPacket.Action.TUMBLE));
-                }
-            }
-
-            if (ragdolled) {
-                float strafe = minecraft.player.input.leftImpulse;
-                float forward = minecraft.player.input.forwardImpulse;
-                if (strafe != 0.0F || forward != 0.0F) {
-                    CorpseLabNetwork.CHANNEL.sendToServer(new RagdollInputPacket(strafe, forward));
-                }
-            }
-
-            if (ragdolled && minecraft.options.keyShift.isDown()) {
-                CorpseLabNetwork.CHANNEL.sendToServer(
-                        new RagdollActionPacket(RagdollActionPacket.Action.GET_UP));
-            }
         }
 
         /** 上一 tick 抓取键是否按下，这样只发送变化 */
@@ -118,62 +69,8 @@ public final class CorpseLabClient {
             CorpseLabNetwork.CHANNEL.sendToServer(new RagdollGrabPacket(down));
         }
 
-        /**
-         * 为撞击触发器提供输入。服务端无法准确测量玩家的速度，所以由客户端
-         * 上报，但只在高速移动时上报，并额外带一小段尾巴，好让定义撞击的
-         * 那次急停真正落在数据里
-         */
-        private static void reportMotion(Minecraft minecraft, boolean ragdolled) {
-            if (ragdolled) {
-                reportTail = 0;
-                return;
-            }
-
-            double speed = minecraft.player.getDeltaMovement().length() * 20.0D;
-            if (speed >= REPORT_SPEED) {
-                reportTail = TAIL_TICKS;
-            } else if (reportTail > 0) {
-                reportTail--;
-            } else {
-                return;
-            }
-
-            CorpseLabNetwork.CHANNEL.sendToServer(
-                    new PlayerMotionPacket(minecraft.player.getDeltaMovement()));
-        }
-
-        @SubscribeEvent
-        public static void onComputeCameraAngles(ViewportEvent.ComputeCameraAngles event) {
-            RagdollCamera.onComputeCameraAngles(event);
-        }
-
-        /**
-         * 变成布娃娃期间隐藏原版的第一人称手持模型
-         *
-         * <p>手和手持物品都画在摄像机前方一个固定位置，一旦摄像机进到
-         * 翻滚的脑袋里，这就毫无道理了。玩家会看到自己真实的手臂和物品
-         * 跟着身体躺在地上，同时还有第二套手臂和物品
-         * 静止地浮在它们上方
-         */
-        @SubscribeEvent
-        public static void onRenderHand(RenderHandEvent event) {
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.player != null && minecraft.player.getVehicle() instanceof RagdollEntity) {
-                event.setCanceled(true);
-            }
-        }
-
-        /**
-         * 玩家变成布娃娃期间隐藏站立的玩家模型。否则玩家会直挺挺地
-         * 渲染在自己瘫倒的身体内部
-         */
         @SubscribeEvent
         public static void onRenderPlayer(RenderPlayerEvent.Pre event) {
-            if (event.getEntity().getVehicle() instanceof RagdollEntity) {
-                event.setCanceled(true);
-                return;
-            }
-
             // 原版会继续为死亡动画绘制正在倒下的玩家，这一幕正好落在尸体上
             // 于是同一处出现两具身体，一具还在穿过另一具。现在尸体本身
             // 就是死亡动画

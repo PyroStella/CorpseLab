@@ -8,12 +8,6 @@ public final class CorpseLabKeybinds {
 
     public static final String CATEGORY = "key.categories.tumble";
 
-    public static final KeyMapping RAGDOLL = new KeyMapping(
-            "key.tumble.ragdoll",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_H,
-            CATEGORY);
-
     /** 按住即可抓住附近的一具身体并拖拽 */
     public static final KeyMapping GRAB = new KeyMapping(
             "key.tumble.grab",

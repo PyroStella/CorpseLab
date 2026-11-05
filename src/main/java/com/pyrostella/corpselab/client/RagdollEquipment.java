@@ -2,7 +2,6 @@ package com.pyrostella.corpselab.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.pyrostella.corpselab.entity.CorpseEntity;
-import com.pyrostella.corpselab.entity.RagdollEntity;
 import com.pyrostella.corpselab.ragdoll.BodyPart;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
@@ -12,7 +11,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.DyeableLeatherItem;
 import net.minecraft.world.item.ItemStack;
@@ -22,9 +20,7 @@ import net.minecraft.world.item.ItemStack;
  * 不至于看起来像换了个人
  *
  * <p>复用原版自己的盔甲模型和贴图，并沿用身体模型那套
- * 按长方体逐个摆放的方式。装备直接从主人身上读，而不是
- * 另外同步：主人正骑在布娃娃上，永远在范围内，其装备
- * 也早就同步过来了
+ * 按长方体逐个摆放的方式
  */
 public final class RagdollEquipment {
 
@@ -46,32 +42,21 @@ public final class RagdollEquipment {
      * @param inner 原版给护腿用的那套更贴身的模型
      * @param outer 原版给其他部位用的模型
      */
-    public static void render(RagdollEntity entity, Player owner, BodyPart part,
+    public static void render(CorpseEntity entity, BodyPart part,
                               PoseStack poseStack, MultiBufferSource buffer, int light,
                               HumanoidModel<?> inner, HumanoidModel<?> outer) {
         EquipmentSlot slot = primarySlot(part);
         // 护腿用贴身的内层模型，其余部位用外层模型
         boolean useInner = slot == EquipmentSlot.LEGS;
 
-        renderPiece(equipment(entity, owner, slot), part, poseStack, buffer, light,
+        renderPiece(entity.equipment(slot), part, poseStack, buffer, light,
                 useInner ? inner : outer, useInner);
 
         // 腿上还要再穿一只靴子，画在护腿之上
         if (part == BodyPart.LEG_LEFT || part == BodyPart.LEG_RIGHT) {
-            renderPiece(equipment(entity, owner, EquipmentSlot.FEET), part, poseStack, buffer,
+            renderPiece(entity.equipment(EquipmentSlot.FEET), part, poseStack, buffer,
                     light, outer, false);
         }
-    }
-
-    /**
-     * 尸体穿的是自己带着的那套，不是主人现在穿的那身
-     * 去读活着的玩家，主人一重生换上新的装备，这具身体就会被剥光
-     */
-    private static ItemStack equipment(RagdollEntity entity, Player owner, EquipmentSlot slot) {
-        if (entity instanceof CorpseEntity corpse) {
-            return corpse.equipment(slot);
-        }
-        return owner == null ? ItemStack.EMPTY : owner.getItemBySlot(slot);
     }
 
     private static void renderPiece(ItemStack stack, BodyPart part, PoseStack poseStack,

@@ -27,29 +27,12 @@ public final class CorpseLabNetwork {
                 .consumerMainThread(RagdollPosePacket::handle)
                 .add();
 
-        CHANNEL.messageBuilder(RagdollActionPacket.class, id++)
-                .encoder(RagdollActionPacket::encode)
-                .decoder(RagdollActionPacket::new)
-                .consumerMainThread(RagdollActionPacket::handle)
-                .add();
-
         CHANNEL.messageBuilder(RagdollGrabPacket.class, id++)
                 .encoder(RagdollGrabPacket::encode)
                 .decoder(RagdollGrabPacket::new)
                 .consumerMainThread(RagdollGrabPacket::handle)
                 .add();
 
-        CHANNEL.messageBuilder(PlayerMotionPacket.class, id++)
-                .encoder(PlayerMotionPacket::encode)
-                .decoder(PlayerMotionPacket::new)
-                .consumerMainThread(PlayerMotionPacket::handle)
-                .add();
-
-        CHANNEL.messageBuilder(RagdollInputPacket.class, id++)
-                .encoder(RagdollInputPacket::encode)
-                .decoder(RagdollInputPacket::new)
-                .consumerMainThread(RagdollInputPacket::handle)
-                .add();
         CHANNEL.messageBuilder(ClientSettingsRequestPacket.class, id++)
                 .encoder(ClientSettingsRequestPacket::encode)
                 .decoder(ClientSettingsRequestPacket::new)

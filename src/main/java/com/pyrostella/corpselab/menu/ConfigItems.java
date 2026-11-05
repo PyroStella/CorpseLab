@@ -24,17 +24,12 @@ final class ConfigItems {
      * 触发器，时钟是计时器，骷髅头是尸体
      */
     private static final Map<String, Item> SECTION_ICONS = Map.ofEntries(
-            Map.entry("general", Items.REDSTONE_TORCH),
             Map.entry("physics", Items.SLIME_BALL),
-            Map.entry("controls", Items.LEAD),
             Map.entry("grab", Items.FISHING_ROD),
             Map.entry("expiry", Items.CLOCK),
             Map.entry("triggers", Items.TNT),
-            Map.entry("suppressions", Items.SHIELD),
-            Map.entry("impactDamage", Items.IRON_SWORD),
             Map.entry("corpse", Items.SKELETON_SKULL),
             Map.entry("mobCorpse", Items.ZOMBIE_HEAD),
-            Map.entry("sound", Items.NOTE_BLOCK),
             Map.entry("display", Items.SPYGLASS));
 
     /** 大致是原版提示框尚未开始挤占屏幕的宽度 */

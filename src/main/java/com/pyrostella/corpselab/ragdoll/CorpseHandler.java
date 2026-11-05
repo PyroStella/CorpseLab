@@ -3,15 +3,13 @@ package com.pyrostella.corpselab.ragdoll;
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.entity.CorpseEntity;
-import com.pyrostella.corpselab.entity.MobCorpseEntity;
-import com.pyrostella.corpselab.entity.RagdollEntity;
+import com.pyrostella.corpselab.entity.SettlingBody;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Vector3d;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -44,32 +42,18 @@ public final class CorpseHandler {
             return;
         }
 
-        // 处于布娃娃状态的玩家死亡时已经躺着，先结束它，让尸体成为
-        // 唯一留下的身体。此时玩家自身的 deltaMovement 无用，因为
-        // 原版每个 tick 都会把乘客的速度清零，真正带着速度的是
-        // 他们骑乘的那具身体
-        Vec3 momentum;
-        if (player.getVehicle() instanceof RagdollEntity ragdoll && ragdoll.skeleton() != null) {
-            Vector3d velocity = ragdoll.skeleton().torso().linVel;
-            momentum = new Vec3(velocity.x, velocity.y, velocity.z);
-            ragdoll.getUp();
-        } else {
-            // 站着中弹意味着在原地倒下，真实的死亡正是这样
-            // 剩下的交给重力
-            momentum = player.getDeltaMovement().scale(20.0D);
+        // 站着中弹意味着在原地倒下，剩下的运动交给重力
+        Vec3 momentum = player.getDeltaMovement().scale(20.0D);
 
-            // 一击致命的爆炸没机会先把人掀倒，尸体只会
-            // 原地倒下而不是被抛出去，因此补上爆炸触发器
-            // 本应给出的初速度
-            Vec3 blast = event.getSource().getSourcePosition();
-            if (event.getSource().is(DamageTypeTags.IS_EXPLOSION) && blast != null) {
-                Vec3 away = player.position()
-                        .add(0.0D, player.getBbHeight() * 0.5D, 0.0D)
-                        .subtract(blast);
-                if (away.lengthSqr() > 1.0e-6D) {
-                    momentum = away.normalize().scale(
-                            CorpseLabConfig.SERVER.explosionLaunchMultiplier.get() * 2.0D);
-                }
+        // 一击致命的爆炸会给尸体补上朝外的初速度
+        Vec3 blast = event.getSource().getSourcePosition();
+        if (event.getSource().is(DamageTypeTags.IS_EXPLOSION) && blast != null) {
+            Vec3 away = player.position()
+                    .add(0.0D, player.getBbHeight() * 0.5D, 0.0D)
+                    .subtract(blast);
+            if (away.lengthSqr() > 1.0e-6D) {
+                momentum = away.normalize().scale(
+                        CorpseLabConfig.SERVER.corpseExplosionLaunchMultiplier.get() * 2.0D);
             }
         }
         CorpseEntity corpse = CorpseEntity.of(player, momentum);
@@ -124,9 +108,9 @@ public final class CorpseHandler {
      */
     @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
-        if (event.getTarget() instanceof RagdollEntity ragdoll
+        if (event.getTarget() instanceof SettlingBody body
                 && event.getEntity() instanceof ServerPlayer player) {
-            ragdoll.sendPoseTo(player);
+            body.sendPoseTo(player);
         }
     }
 

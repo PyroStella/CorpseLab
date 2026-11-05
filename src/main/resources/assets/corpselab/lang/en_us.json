@@ -1,11 +1,6 @@
 {
   "key.categories.tumble": "Tumble",
-  "key.tumble.ragdoll": "Ragdoll",
-  "corpselab.hud.controls": "Shift: Get Up · WASD: Roll",
-  "corpselab.configuration.showControlsHint": "Show Controls Hint",
-  "corpselab.hud.controls.down": "WASD: Roll",
   "corpselab.container.corpse": "%s's Body",
-  "entity.tumble.ragdoll": "Ragdoll",
   "entity.tumble.corpse": "Body",
   "entity.tumble.mob_corpse": "Body",
   "key.tumble.grab": "Grab Body"

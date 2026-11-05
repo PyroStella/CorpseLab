@@ -3,7 +3,6 @@ package com.pyrostella.corpselab.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pyrostella.corpselab.entity.CorpseEntity;
-import com.pyrostella.corpselab.entity.RagdollEntity;
 import com.pyrostella.corpselab.ragdoll.BodyPart;
 import net.minecraft.client.Minecraft;
 import com.mojang.math.Axis;
@@ -12,6 +11,7 @@ import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.model.geom.ModelLayers;
@@ -28,7 +28,6 @@ import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.entity.player.Player;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -42,7 +41,7 @@ import java.util.UUID;
  * 没有模型改造、没有额外几何，也没有自定义网格 ——
  * 就是原版画的那六个部件，放到别的位置
  */
-public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRenderer<T> {
+public class RagdollEntityRenderer extends EntityRenderer<CorpseEntity> {
 
     private final PlayerModel<AbstractClientPlayer> wideModel;
     private final PlayerModel<AbstractClientPlayer> slimModel;
@@ -70,14 +69,14 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
      * 才会自己纠正。玩家列表条目在两种情况下都还在
      * 主人根本不在尸体附近时它也存在
      */
-    private PlayerInfo playerInfo(T entity) {
+    private PlayerInfo playerInfo(CorpseEntity entity) {
         UUID id = entity.getOwnerId();
         ClientPacketListener connection = Minecraft.getInstance().getConnection();
         return id == null || connection == null ? null : connection.getPlayerInfo(id);
     }
 
     @Override
-    public ResourceLocation getTextureLocation(T entity) {
+    public ResourceLocation getTextureLocation(CorpseEntity entity) {
         PlayerInfo info = playerInfo(entity);
         if (info != null) {
             return info.getSkinLocation();
@@ -91,7 +90,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
         return id == null ? DefaultPlayerSkin.getDefaultSkin() : DefaultPlayerSkin.getDefaultSkin(id);
     }
 
-    private static AbstractClientPlayer owner(RagdollEntity entity) {
+    private static AbstractClientPlayer owner(CorpseEntity entity) {
         UUID id = entity.getOwnerId();
         if (id == null || Minecraft.getInstance().level == null) {
             return null;
@@ -100,7 +99,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
         return player instanceof AbstractClientPlayer client ? client : null;
     }
 
-    private boolean isSlim(T entity) {
+    private boolean isSlim(CorpseEntity entity) {
         PlayerInfo info = playerInfo(entity);
         if (info != null) {
             return "slim".equals(info.getModelName());
@@ -114,7 +113,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
     }
 
     @Override
-    public void render(T entity, float entityYaw, float partialTick,
+    public void render(CorpseEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource buffer, int light) {
         if (!entity.hasPose()) {
             return;
@@ -136,19 +135,9 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
         double renderY = Mth.lerp(partialTick, entity.yOld, entity.getY());
         double renderZ = Mth.lerp(partialTick, entity.zOld, entity.getZ());
 
-        // 相机位于这个布娃娃的头部内部时，画头只会让整个屏幕
-        // 变成长方体的内壁。原版在第一人称下隐藏玩家模型
-        // 也是同样的原因
-        Player local = Minecraft.getInstance().player;
-        boolean hideHead = local != null && entity == local.getVehicle() && RagdollCamera.isActive();
-
         BodyPart[] parts = BodyPart.values();
         for (int i = 0; i < parts.length; i++) {
             BodyPart part = parts[i];
-            if (hideHead && part == BodyPart.HEAD) {
-                continue;
-            }
-
             Vec3 world = entity.partWorldPosition(i);
             entity.partRotation(i, rotation);
 
@@ -170,7 +159,7 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
 
             // 此时栈已经位于模型空间里该部件自己的枢轴
             // 而这正是原版绘制盔甲和手持物品的起点
-            RagdollEquipment.render(entity, owner(entity), part, poseStack, buffer, light,
+            RagdollEquipment.render(entity, part, poseStack, buffer, light,
                     innerArmor, outerArmor);
             renderHeldItem(entity, part, poseStack, buffer, light);
 
@@ -186,29 +175,21 @@ public class RagdollEntityRenderer<T extends RagdollEntity> extends EntityRender
      * <p>照着原版的 ItemInHandLayer，从手臂的枢轴出发：同样的旋转
      * 同样的到拳头的偏移，物品才会握在手里而不是浮着
      */
-    private void renderHeldItem(T entity, BodyPart part, PoseStack poseStack,
+    private void renderHeldItem(CorpseEntity entity, BodyPart part, PoseStack poseStack,
                                 MultiBufferSource buffer, int light) {
         if (part != BodyPart.ARM_LEFT && part != BodyPart.ARM_RIGHT) {
             return;
         }
         AbstractClientPlayer owner = owner(entity);
-        if (owner == null && !(entity instanceof CorpseEntity)) {
-            return;
-        }
 
         boolean leftArm = part == BodyPart.ARM_LEFT;
         // 主人离线时读不到惯用手，按常见情况处理
         HumanoidArm mainArm = owner == null ? HumanoidArm.RIGHT : owner.getMainArm();
         boolean isMainHand = (mainArm == HumanoidArm.LEFT) == leftArm;
 
-        // 尸体拿的是它自己带着的东西。读主人只会显示主人重生后捡到的物品
-        // 或者什么都显示不出来
-        ItemStack stack;
-        if (entity instanceof CorpseEntity corpse) {
-            stack = corpse.equipment(isMainHand ? EquipmentSlot.MAINHAND : EquipmentSlot.OFFHAND);
-        } else {
-            stack = isMainHand ? owner.getMainHandItem() : owner.getOffhandItem();
-        }
+        ItemStack stack = entity.equipment(isMainHand
+                ? EquipmentSlot.MAINHAND
+                : EquipmentSlot.OFFHAND);
 
         if (stack.isEmpty()) {
             return;

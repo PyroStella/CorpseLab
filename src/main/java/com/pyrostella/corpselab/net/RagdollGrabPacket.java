@@ -1,7 +1,6 @@
 package com.pyrostella.corpselab.net;
 
 import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.entity.RagdollEntity;
 import com.pyrostella.corpselab.entity.SettlingBody;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -44,7 +43,7 @@ public final class RagdollGrabPacket {
             double reach = CorpseLabConfig.SERVER.grabReach.get();
             AABB search = player.getBoundingBox().inflate(reach + 2.0D);
 
-            for (RagdollEntity body : player.level().getEntitiesOfClass(RagdollEntity.class, search)) {
+            for (SettlingBody body : player.level().getEntitiesOfClass(SettlingBody.class, search)) {
                 if (!grabbing) {
                     // 放开这名玩家原先抓着的东西，不管它在哪里
                     if (body.isGrabbedBy(player)) {
@@ -53,15 +52,9 @@ public final class RagdollGrabPacket {
                     continue;
                 }
 
-                // 绝不抓自己的身体：玩家正骑在上面
-                if (body == player.getVehicle()) {
-                    continue;
-                }
                 if (body.tryGrab(player)) {
                     // 已经静止的身体必须重新开始模拟，才拖得动
-                    if (body instanceof SettlingBody settling) {
-                        settling.wake();
-                    }
+                    body.wake();
                     return;
                 }
             }

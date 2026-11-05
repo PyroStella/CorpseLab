@@ -3,7 +3,6 @@ package com.pyrostella.corpselab;
 import com.pyrostella.corpselab.entity.CorpseEntity;
 import com.pyrostella.corpselab.entity.MobCorpseEntity;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
-import com.pyrostella.corpselab.entity.RagdollEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.registries.DeferredRegister;
@@ -14,23 +13,7 @@ public final class CorpseLabRegistry {
 
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, CorpseLab.MOD_ID);
 
-    public static final RegistryObject<EntityType<RagdollEntity>> RAGDOLL =
-            ENTITY_TYPES.register("ragdoll", () -> EntityType.Builder
-                    .<RagdollEntity>of(RagdollEntity::new, MobCategory.MISC)
-                    // 实体本身只是一个锚点：四肢按同步过来的姿态绘制
-                    // 所以它自己的碰撞箱只要存在、能被追踪就够了
-                    .sized(0.6F, 0.6F)
-                    .clientTrackingRange(10)
-                    // 姿态每个 tick 都在变，所以追踪器必须每个 tick 都发包
-                    .updateInterval(1)
-                    .noSummon()
-                    .fireImmune()
-                    .build("ragdoll"));
-
-    /**
-     * 尸体比活着的布娃娃追踪得更远，而且会持久存在：玩家走回自己
-     * 死亡的地点时，必须在走到之前就能看见自己的尸体
-     */
+    /** 玩家走回死亡地点时，必须在到达前看见自己的尸体 */
     public static final RegistryObject<EntityType<CorpseEntity>> CORPSE =
             ENTITY_TYPES.register("corpse", () -> EntityType.Builder
                     .<CorpseEntity>of(CorpseEntity::new, MobCategory.MISC)
