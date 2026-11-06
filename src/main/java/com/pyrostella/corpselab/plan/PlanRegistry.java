@@ -17,13 +17,9 @@ import net.minecraft.world.entity.LivingEntity;
  * <p>数据由客户端上报（{@code PlanSubmitPacket}）。同类型只保留第一次的结果
  * 防止不同客户端反复覆盖导致姿态漂移。</p>
  *
- * <p class="note">服务端信任客户端发来的尺寸，这是当前的安全缺口：恶意客户端可以上报超大的盒子
- * 后续要按生物命中箱做 clamp，并限制盒子上限。</p>
+ * <p>尺寸来自客户端模型，接收时校验数值和拓扑完整性，不使用固定部件数量或尺寸倍率上限。</p>
  */
 public final class PlanRegistry {
-
-    /** 盒子数量上限，防止有人塞一万个盒子把服务端拖死 */
-    public static final int MAX_BOXES = 96;
 
     private static final Map<ResourceLocation, BodyPlan> PLANS = new ConcurrentHashMap<>();
     private static final Map<LivingEntity, BodyPlan> INSTANCE_PLANS = Collections.synchronizedMap(new WeakHashMap<>());
@@ -33,7 +29,7 @@ public final class PlanRegistry {
 
     /** 服务端：接收上报 */
     public static void accept(ResourceLocation type, BodyPlan plan) {
-        if (plan.boxCount() == 0 || plan.boxCount() > MAX_BOXES) {
+        if (plan.boxCount() == 0 || !BodyPlanCodec.valid(plan)) {
             CorpseLab.LOGGER.warn("拒绝骨架上报 {}：盒子数量 {}", type, plan.boxCount());
             return;
         }
@@ -52,7 +48,7 @@ public final class PlanRegistry {
     /** 服务端：记录当前实体经渲染器缩放后的实际骨架 */
     public static void acceptInstance(LivingEntity entity, BodyPlan plan) {
         BodyPlan base = PLANS.get(EntityType.getKey(entity.getType()));
-        if (!matchesBase(base, plan)) {
+        if (!BodyPlanCodec.valid(plan) || !matchesBase(base, plan)) {
             return;
         }
         INSTANCE_PLANS.put(entity, plan);
@@ -72,33 +68,11 @@ public final class PlanRegistry {
         for (int i = 0; i < base.boxCount(); i++) {
             BodyPlan.Box expected = base.boxes().get(i);
             BodyPlan.Box actual = plan.boxes().get(i);
-            if (actual.index() != i || !actual.path().equals(expected.path())
-                    || !finite(actual) || !reasonableScale(expected, actual)) {
+            if (actual.index() != i || !actual.path().equals(expected.path())) {
                 return false;
             }
         }
         return true;
-    }
-
-    private static boolean finite(BodyPlan.Box box) {
-        return Double.isFinite(box.cx()) && Double.isFinite(box.cy()) && Double.isFinite(box.cz())
-                && Double.isFinite(box.hx()) && Double.isFinite(box.hy()) && Double.isFinite(box.hz())
-                && Double.isFinite(box.mass())
-                && Double.isFinite(box.px()) && Double.isFinite(box.py()) && Double.isFinite(box.pz());
-    }
-
-    private static boolean reasonableScale(BodyPlan.Box base, BodyPlan.Box actual) {
-        return scaleInRange(actual.hx(), base.hx())
-                && scaleInRange(actual.hy(), base.hy())
-                && scaleInRange(actual.hz(), base.hz());
-    }
-
-    private static boolean scaleInRange(double actual, double base) {
-        if (base <= 1.0E-6D) {
-            return actual >= 0.0D && actual <= 1.0E-3D;
-        }
-        double scale = actual / base;
-        return scale >= 0.03125D && scale <= 32.0D;
     }
 
     public static int size() {

@@ -63,7 +63,7 @@ public final class PlanPosePacket {
         this.anchorX = buf.readDouble();
         this.anchorY = buf.readDouble();
         this.anchorZ = buf.readDouble();
-        int count = buf.readVarInt();
+        int count = com.pyrostella.corpselab.util.PacketReads.count(buf, 28);
         this.offsets = new Vec3[count];
         this.rotations = new Quaternionf[count];
         for (int i = 0; i < count; i++) {

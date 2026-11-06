@@ -413,7 +413,11 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         if (tag.contains("Plan")) {
             try {
                 FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(tag.getByteArray("Plan")));
-                this.plan = BodyPlanCodec.read(buf);
+                try {
+                    this.plan = BodyPlanCodec.read(buf);
+                } finally {
+                    buf.release();
+                }
                 if (!this.level().isClientSide) {
                     this.ragdoll = new PlanRagdoll(this.plan, this.getX(), this.getY(), this.getZ(),
                             Math.toRadians(this.getYRot()), null);
@@ -435,8 +439,12 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         tag.putFloat("CorpseSize", this.entityData.get(CORPSE_SIZE));
         if (this.plan.boxCount() > 0) {
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-            BodyPlanCodec.write(buf, this.plan);
-            tag.putByteArray("Plan", ByteBufUtil.getBytes(buf));
+            try {
+                BodyPlanCodec.write(buf, this.plan);
+                tag.putByteArray("Plan", ByteBufUtil.getBytes(buf));
+            } finally {
+                buf.release();
+            }
         }
     }
 

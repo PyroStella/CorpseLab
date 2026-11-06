@@ -23,13 +23,13 @@ public final class ClientSettingsApplyPacket {
     }
 
     public ClientSettingsApplyPacket(FriendlyByteBuf buf) {
-        path = buf.readUtf(256);
-        value = buf.readUtf(2048);
+        path = buf.readUtf();
+        value = buf.readUtf();
     }
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeUtf(path, 256);
-        buf.writeUtf(value, 2048);
+        buf.writeUtf(path);
+        buf.writeUtf(value);
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {

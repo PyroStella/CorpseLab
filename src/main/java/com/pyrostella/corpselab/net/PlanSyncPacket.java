@@ -32,7 +32,8 @@ public final class PlanSyncPacket {
         this.entityId = buf.readVarInt();
         this.sourceType = buf.readResourceLocation();
         this.plan = BodyPlanCodec.read(buf);
-        CompoundTag tag = buf.readNbt();
+        // 服务端外观已受外层数据包协议约束，保留完整 NBT 快照
+        CompoundTag tag = buf.readAnySizeNbt();
         this.appearance = tag == null ? new CompoundTag() : tag;
     }
 
