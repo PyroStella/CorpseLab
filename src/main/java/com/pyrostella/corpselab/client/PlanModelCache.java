@@ -1,12 +1,9 @@
 package com.pyrostella.corpselab.client;
 
-import com.pyrostella.corpselab.plan.BodyPlan;
-import com.pyrostella.corpselab.plan.ModelPartScanner;
-import com.pyrostella.corpselab.plan.ModelPartScanner.PartRef;
+import com.pyrostella.corpselab.client.model.CorpseModelAdapter;
+import com.pyrostella.corpselab.client.model.CorpseModelAdapters;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.entity.EntityRenderer;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,51 +13,50 @@ import java.util.*;
 
 
 /**
- * 客户端缓存：生物类型 → 模型部件表
+ * 客户端缓存：生物类型 → 适配器生成的绘制绑定
  *
- * <p>渲染尸体时要把刚体变换套回原模型，所以需要三样东西：模型的 {@code EntityModel}
- * 每个盒子对应的 {@code ModelPart}、以及一个能取贴图用的实体实例（贴图要靠实体算）。</p>
+ * <p>模型体系的细节封装在绑定内，缓存层只负责创建探针实体、选择适配器和连接生命周期。</p>
  *
  * <p>这个缓存只在客户端存在，服务端完全不知道模型长什么样。</p>
  */
 public final class PlanModelCache {
 
-    /**
-     * @param parts    与 BodyPlan 盒子一一对应的模型部件
-     * @param model    实体模型
-     * @param renderer 原渲染器，用来取贴图
-     * @param probe    用来取贴图的假实体
-     */
-    public record Binding(BodyPlan plan, List<PartRef> parts, EntityModel<?> model,
-                          LivingEntityRenderer<?, ?> renderer, LivingEntity probe) {
-    }
-
-    private static final Map<EntityType<?>, Binding> CACHE = new HashMap<>();
-    private static final Map<EntityType<?>, Boolean> FAILED = new HashMap<>();
+    private static final Map<EntityType<?>, CorpseModelAdapter.Binding> CACHE = new HashMap<>();
+    private static final Map<EntityType<?>, Long> RETRY_AT = new HashMap<>();
+    private static Object adaptersVersion;
 
     private PlanModelCache() {
     }
 
     @Nullable
-    public static Binding get(EntityType<?> type) {
+    public static CorpseModelAdapter.Binding get(EntityType<?> type) {
+        if (Minecraft.getInstance().level == null) {
+            return null;
+        }
+        if (adaptersVersion != CorpseModelAdapters.version()) {
+            clear();
+            adaptersVersion = CorpseModelAdapters.version();
+        }
         if (CACHE.containsKey(type)) {
             return CACHE.get(type);
         }
-        if (FAILED.containsKey(type)) {
+        if (Minecraft.getInstance().level.getGameTime() < RETRY_AT.getOrDefault(type, Long.MIN_VALUE)) {
             return null;
         }
 
-        Binding binding = build(type);
+        CorpseModelAdapter.Binding binding = build(type);
         if (binding == null) {
-            FAILED.put(type, true);
+            // 第三方模型可能尚未就绪，限频重试，不能永久缓存一次性的绑定失败
+            RETRY_AT.put(type, Minecraft.getInstance().level.getGameTime() + 20);
         } else {
+            RETRY_AT.remove(type);
             CACHE.put(type, binding);
         }
         return binding;
     }
 
     @Nullable
-    private static Binding build(EntityType<?> type) {
+    private static CorpseModelAdapter.Binding build(EntityType<?> type) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {
             return null;
@@ -73,21 +69,12 @@ public final class PlanModelCache {
         probe.setPos(0.0D, -1000.0D, 0.0D);
 
         EntityRenderer<?> renderer = minecraft.getEntityRenderDispatcher().getRenderer(probe);
-        if (!(renderer instanceof LivingEntityRenderer<?, ?> livingRenderer)) {
-            return null;
-        }
-
-        EntityModel<?> model = livingRenderer.getModel();
-        ModelPartScanner.ScanResult result = ModelPartScanner.scanDetailed(model, true);
-        if (result.parts().isEmpty()) {
-            return null;
-        }
-
-        return new Binding(result.plan(), result.parts(), model, livingRenderer, probe);
+        CorpseModelAdapter adapter = CorpseModelAdapters.select(probe, renderer);
+        return adapter == null ? null : adapter.bind(probe, renderer);
     }
 
     public static void clear() {
         CACHE.clear();
-        FAILED.clear();
+        RETRY_AT.clear();
     }
 }

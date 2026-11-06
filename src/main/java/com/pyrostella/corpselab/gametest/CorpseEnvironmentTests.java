@@ -3,6 +3,8 @@ package com.pyrostella.corpselab.gametest;
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.entity.CorpseLimbEntity;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
+import com.pyrostella.corpselab.environment.LimbEffects;
+import com.pyrostella.corpselab.environment.LimbEnvironmentEffect;
 import com.pyrostella.corpselab.physics.RigidBody;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import net.minecraft.core.BlockPos;
@@ -34,7 +36,7 @@ public final class CorpseEnvironmentTests {
 
     private static CorpseLimbEntity limb(GameTestHelper helper, PlanCorpseEntity corpse) {
         List<CorpseLimbEntity> limbs = helper.getLevel().getEntitiesOfClass(CorpseLimbEntity.class,
-                corpse.getBoundingBox().inflate(1));
+                corpse.getBoundingBox().inflate(1), candidate -> candidate.corpse() == corpse);
         helper.assertTrue(limbs.size() == 1, "一块骨架应生成一个交互实体");
         return limbs.get(0);
     }
@@ -176,6 +178,50 @@ public final class CorpseEnvironmentTests {
         }
         helper.assertTrue(body.pos.x > beforeX + 0.1D, "贴地肢体必须实际被水流推动，不能被陆地摩擦锁死");
         corpse.discard();
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "forge", template = "empty")
+    public static void registeredEffectRunsWithoutChangingEntity(GameTestHelper helper) {
+        PlanCorpseEntity first = corpse(helper);
+        PlanCorpseEntity second = corpse(helper);
+        first.addTag("extension_test");
+        second.addTag("extension_test");
+        CorpseLimbEntity firstLimb = limb(helper, first);
+        CorpseLimbEntity secondLimb = limb(helper, second);
+        try (var registration = LimbEffects.register(new ResourceLocation("corpselab", "test_effect"),
+                100, () -> new LimbEnvironmentEffect() {
+                    private int ticks;
+
+                    @Override
+                    public boolean supports(LimbEffects.Context context) {
+                        return context.limb().corpse().getTags().contains("extension_test");
+                    }
+
+                    @Override
+                    public void tick(LimbEffects.Context context) {
+                        context.setPhysics(0.5D, 0.2D, 0.9D);
+                        context.limb().setDeltaMovement(++this.ticks * 0.1D, 0, 0);
+                    }
+                })) {
+            firstLimb.tick();
+            firstLimb.tick();
+            secondLimb.tick();
+            firstLimb.consumeMotion();
+            secondLimb.consumeMotion();
+            helper.assertTrue(Math.abs(first.ragdoll().body(0).linVel.x - 4.0D) < 1.0E-8D
+                            && Math.abs(second.ragdoll().body(0).linVel.x - 2.0D) < 1.0E-8D,
+                    "注册处理器必须生效，且每个肢体的处理器状态独立");
+            helper.assertTrue(first.ragdoll().body(0).gravityScale == 0.5D,
+                    "高优先级扩展必须能覆盖默认环境参数");
+        } finally {
+            firstLimb.publishPose();
+            firstLimb.tick();
+            helper.assertTrue(first.ragdoll().body(0).gravityScale == 1.0D,
+                    "撤销扩展后既有肢体应恢复默认环境参数");
+            first.discard();
+            second.discard();
+        }
         helper.succeed();
     }
 }

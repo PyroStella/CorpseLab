@@ -10,10 +10,12 @@ import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import com.pyrostella.corpselab.net.PlanInstancePacket;
 import com.pyrostella.corpselab.net.PlanSubmitPacket;
 import com.pyrostella.corpselab.plan.BodyPlan;
-import com.pyrostella.corpselab.plan.ModelPartScanner;
+import com.pyrostella.corpselab.client.model.CorpseModelAdapter;
+import com.pyrostella.corpselab.client.model.CorpseModelAdapters;
 
-import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -23,6 +25,7 @@ import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.event.TickEvent;
 
 /**
  * 客户端第一次看到某类生物时扫描模型，并把物理骨架上报给服务端
@@ -55,19 +58,51 @@ public final class BodyPlanReporter {
     @SuppressWarnings("rawtypes")
     public static void onRenderLiving(RenderLivingEvent.Pre event) {
         LivingEntity entity = event.getEntity();
+        CorpseModelAdapter adapter = CorpseModelAdapters.select(entity, event.getRenderer());
+        if (adapter != null && adapter.usesLivingRenderEvent()) {
+            report(entity, event.getRenderer(), adapter, event.getPartialTick());
+        }
+    }
+
+    /** 没有 RenderLivingEvent 的模型体系也能仅通过注册适配器完成发现与上报 */
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.phase != TickEvent.Phase.END || minecraft.level == null || minecraft.player == null
+                || minecraft.level.getGameTime() % INSTANCE_REPORT_INTERVAL != 0
+                || !CorpseModelAdapters.needsDiscovery()) {
+            return;
+        }
+        for (Entity candidate : minecraft.level.entitiesForRendering()) {
+            if (candidate instanceof LivingEntity entity && entity.distanceToSqr(minecraft.player) <= 96.0D * 96.0D) {
+                EntityRenderer<?> renderer = minecraft.getEntityRenderDispatcher().getRenderer(entity);
+                CorpseModelAdapter adapter = CorpseModelAdapters.select(entity, renderer);
+                if (adapter != null && !adapter.usesLivingRenderEvent()) {
+                    report(entity, renderer, adapter, 1.0F);
+                }
+            }
+        }
+    }
+
+    /** 专用渲染事件可在准确的采样时机主动上报，无需修改尸体核心代码 */
+    public static void report(LivingEntity entity, EntityRenderer<?> renderer, float partialTick) {
+        CorpseModelAdapter adapter = CorpseModelAdapters.select(entity, renderer);
+        if (adapter != null) {
+            report(entity, renderer, adapter, partialTick);
+        }
+    }
+
+    private static void report(LivingEntity entity, EntityRenderer<?> renderer,
+                               CorpseModelAdapter adapter, float partialTick) {
         ResourceLocation id = EntityType.getKey(entity.getType());
-
-        LivingEntityRenderer livingRenderer = event.getRenderer();
-
-        EntityModel<?> model = livingRenderer.getModel();
+        Object model = adapter.modelKey(entity, renderer);
         ScanCache cached = SCANS.get(id);
-        if (cached == null || cached.model() != model) {
-            ModelPartScanner.ScanResult scan = ModelPartScanner.scanDetailed(model);
+        if (cached == null || cached.model() != model || cached.adapter() != adapter) {
+            CorpseModelAdapter.Scan scan = adapter.scan(entity, renderer);
             if (scan.plan().boxCount() == 0) {
-                SCANNED.add(id);
                 return;
             }
-            cached = new ScanCache(model, scan);
+            cached = new ScanCache(model, adapter, scan);
             SCANS.put(id, cached);
         }
 
@@ -88,8 +123,7 @@ public final class BodyPlanReporter {
             return;
         }
 
-        BodyPlan instancePlan = ModelRenderPlan.capture(cached.scan(), model, livingRenderer,
-                entity, event.getPartialTick());
+        BodyPlan instancePlan = cached.scan().capture(entity, renderer, partialTick);
         if (previous == null || !previous.type().equals(id)
                 || differs(previous.plan(), instancePlan)) {
             CorpseLabNetwork.CHANNEL.sendToServer(
@@ -135,7 +169,7 @@ public final class BodyPlanReporter {
         PlanModelCache.clear();
     }
 
-    private record ScanCache(EntityModel<?> model, ModelPartScanner.ScanResult scan) {
+    private record ScanCache(Object model, CorpseModelAdapter adapter, CorpseModelAdapter.Scan scan) {
     }
 
     private record InstanceReport(ResourceLocation type, int tick, BodyPlan plan) {
