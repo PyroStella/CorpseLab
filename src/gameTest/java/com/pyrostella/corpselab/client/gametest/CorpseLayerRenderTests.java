@@ -77,7 +77,7 @@ public final class CorpseLayerRenderTests {
         }
     }
 
-    private static RecordingBuffers render(LivingEntity source) {
+    static RecordingBuffers render(LivingEntity source) {
         Minecraft minecraft = Minecraft.getInstance();
         var renderer = minecraft.getEntityRenderDispatcher().getRenderer(source);
         var adapter = CorpseModelAdapters.select(source, renderer);
@@ -103,7 +103,7 @@ public final class CorpseLayerRenderTests {
         if (!condition) throw new IllegalStateException(message);
     }
 
-    private static final class RecordingBuffers implements MultiBufferSource {
+    static final class RecordingBuffers implements MultiBufferSource {
         private final Map<String, Counter> counts = new HashMap<>();
 
         @Override
@@ -111,7 +111,11 @@ public final class CorpseLayerRenderTests {
             return this.counts.computeIfAbsent(type.toString(), key -> new Counter());
         }
 
-        private boolean has(String material) {
+        int vertexCount() {
+            return this.counts.values().stream().mapToInt(counter -> counter.vertices).sum();
+        }
+
+        boolean has(String material) {
             return this.counts.entrySet().stream()
                     .anyMatch(entry -> entry.getKey().contains(material) && entry.getValue().vertices > 0);
         }

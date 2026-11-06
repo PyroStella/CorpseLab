@@ -17,6 +17,14 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 
+// 游戏集成测试独立编译，仅在专用测试启动时加载，不属于正式模组输出
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
     copyIdeResources = true
@@ -38,23 +46,34 @@ minecraft {
         }
 
         client {
-            args '--mixin.config', 'corpselab.mixins.json'
+            args '--mixin.config', 'corpselab.mixins.json', '--mixin.config', 'corpselab.gecko.mixins.json'
             if (project.hasProperty('corpseRenderTest')) {
                 property 'corpselab.renderTest', 'true'
+                if (project.hasProperty('renderTestWorld')) {
+                    args '--quickPlaySingleplayer', project.property('renderTestWorld')
+                }
+                mods {
+                    "${mod_id}" {
+                        source sourceSets.gameTest
+                    }
+                }
             }
-            property 'forge.enabledGameTestNamespaces', mod_id
             // GeckoLib 带 mixin，开发环境要打开 refmap 重映射，否则 APPLY 阶段直接崩
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
         }
 
         server {
-            property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
         }
 
         gameTestServer {
             workingDirectory project.file('run-gametest')
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
             property 'forge.enabledGameTestNamespaces', "${mod_id},forge"
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
@@ -85,8 +104,13 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     // geo 模型渲染用；物理内核本身不依赖它
-    implementation fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
-    implementation("com.eliotlash.mclib:mclib:20")
+    compileOnly fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
+    // 使用 -PwithoutGeckoLib 验证完全未安装的运行环境
+    if (!project.hasProperty('withoutGeckoLib')) {
+        runtimeOnly fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
+        runtimeOnly 'com.eliotlash.mclib:mclib:20'
+    }
+
 
     // 1.20.1 自带 JOML，这里只是编译/测试期需要，不会打包
     implementation 'org.joml:joml:1.10.5'
@@ -110,7 +134,7 @@ tasks.named('test', Test).configure {
 tasks.matching { it.name == 'runGameTestServer' }.configureEach {
     doFirst {
         copy {
-            from 'src/test/resources/gameteststructures'
+            from 'src/gameTest/resources/gameteststructures'
             into 'run-gametest/gameteststructures'
         }
     }
@@ -132,6 +156,8 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
+    // 防止旧编译产物或后续误配置将游戏测试及模板带入发布包
+    exclude '**/gametest/**', 'gameteststructures/**'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,
@@ -141,11 +167,41 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
                 'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-                'MixinConfigs': 'corpselab.mixins.json'
+                'MixinConfigs': 'corpselab.mixins.json,corpselab.gecko.mixins.json'
         ])
     }
 
     finalizedBy 'reobfJar'
+}
+
+// 构建时核对实际发布包，连同普通单元测试一起检查，避免测试类泄漏
+def verifyProductionJar = tasks.register('verifyProductionJar') {
+    group = 'verification'
+    description = '验证正式 JAR 不包含测试类或 GameTest 模板'
+    dependsOn tasks.named('jar'), tasks.named('testClasses'), tasks.named('gameTestClasses')
+    doLast {
+        def testClasses = [] as Set
+        [sourceSets.test, sourceSets.gameTest].each { testSourceSet ->
+            testSourceSet.output.classesDirs.asFileTree.visit { entry ->
+                if (!entry.directory) testClasses.add(entry.relativePath.pathString)
+            }
+        }
+        def leakedEntries = []
+        zipTree(tasks.named('jar', Jar).get().archiveFile.get().asFile).visit { entry ->
+            def path = entry.relativePath.pathString
+            if (!entry.directory && (testClasses.contains(path)
+                    || path.contains('/gametest/') || path.startsWith('gameteststructures/'))) {
+                leakedEntries.add(path)
+            }
+        }
+        if (!leakedEntries.empty) {
+            throw new GradleException("正式 JAR 包含测试内容: ${leakedEntries.join(', ')}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn verifyProductionJar
 }
 
 publishing {

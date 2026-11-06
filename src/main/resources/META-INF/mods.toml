@@ -34,10 +34,10 @@ license="${mod_license}"
     ordering="NONE"
     side="BOTH"
 
-# 对 GeckoLib 的依赖：geo 模型解析与渲染要用
+# 可选 GeckoLib 4 兼容，未安装时保留全部原版功能
 [[dependencies.${mod_id}]]
     modId="geckolib"
-    mandatory=true
-    versionRange="[4.8.4,)"
+    mandatory=false
+    versionRange="[4.8.4,5)"
     ordering="AFTER"
     side="BOTH"
