@@ -11,7 +11,11 @@ public final class CorpseAppearance {
     }
 
     public static CompoundTag capture(LivingEntity source) {
-        CompoundTag tag = source.saveWithoutId(new CompoundTag());
+        return fromSnapshot(CorpseSourceData.capture(source));
+    }
+
+    public static CompoundTag fromSnapshot(CompoundTag snapshot) {
+        CompoundTag tag = snapshot.copy();
         // 探针只代表源实体自身，不能带入骑乘实体或恢复拴绳关系
         tag.remove("Passengers");
         tag.remove("Leash");

@@ -17,6 +17,7 @@ import com.pyrostella.corpselab.net.PlanPosePacket;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.BodyPlanCodec;
 import com.pyrostella.corpselab.plan.CorpseAppearance;
+import com.pyrostella.corpselab.plan.CorpseSourceData;
 import com.pyrostella.corpselab.plan.PlanConfig;
 import com.pyrostella.corpselab.plan.PlanPose;
 import com.pyrostella.corpselab.plan.PlanRagdoll;
@@ -66,6 +67,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     /** 死亡生物的类型，客户端据此找模型与贴图 */
     private ResourceLocation sourceType = new ResourceLocation("minecraft", "pig");
     private CompoundTag appearance = new CompoundTag();
+    private CompoundTag sourceEntityData = new CompoundTag();
     private int appearanceVersion;
 
     /** 已存在的 tick 数，用于过期清理 */
@@ -81,16 +83,13 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         this.setNoGravity(true);
     }
 
-    /**
-     * 服务端生成一具尸体
-     *
-     * @param level   服务端世界
-     * @param plan    骨架
-     * @param pos     死亡位置（脚底）
-     * @param yaw     死亡朝向
-     * @param impulse 死亡时的动量
-     * @param source  死者；用来继承死亡那一刻的骨骼姿势，可以为 null
-     */
+    /** 从原生物继承位置、朝向、三轴速度、死亡姿态及完整原始数据 */
+    public static PlanCorpseEntity spawn(ServerLevel level, BodyPlan plan, LivingEntity source) {
+        return spawn(level, plan, EntityType.getKey(source.getType()), source.position(), source.yBodyRot,
+                CorpseSourceData.velocity(source), source);
+    }
+
+    /** 兼容显式指定初速度的生成调用，速度单位为格每秒 */
     public static PlanCorpseEntity spawn(ServerLevel level, BodyPlan plan, ResourceLocation sourceType,
                                          Vec3 pos, float yaw, Vec3 impulse,
                                          @Nullable LivingEntity source) {
@@ -102,7 +101,8 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         corpse.plan = plan;
         corpse.sourceType = sourceType;
         if (source != null) {
-            corpse.setAppearance(CorpseAppearance.capture(source));
+            corpse.sourceEntityData = CorpseSourceData.capture(source);
+            corpse.setAppearance(CorpseAppearance.fromSnapshot(corpse.sourceEntityData));
         }
         corpse.setCorpseSize(source == null ? sourceWidth(sourceType) : source.getBbWidth());
         corpse.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
@@ -188,6 +188,10 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         return false;
     }
 
+    /** 供后续恢复原生物使用，调用方修改副本不会影响保存的记录 */
+    public CompoundTag sourceEntityData() {
+        return this.sourceEntityData.copy();
+    }
     /** 存在了多少 tick，用于过期清理和最老优先淘汰 */
     public int age() {
         return this.age;
@@ -403,6 +407,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        this.sourceEntityData = tag.getCompound("SourceEntityData").copy();
         this.setAppearance(tag.getCompound("Appearance"));
         this.age = tag.getInt("Age");
         if (tag.contains("SourceType")) {
@@ -433,6 +438,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.put("SourceEntityData", this.sourceEntityData.copy());
         tag.put("Appearance", this.appearance.copy());
         tag.putInt("Age", this.age);
         tag.putString("SourceType", this.sourceType.toString());

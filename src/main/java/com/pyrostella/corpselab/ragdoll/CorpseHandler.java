@@ -4,6 +4,7 @@ import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.entity.CorpseEntity;
 import com.pyrostella.corpselab.entity.SettlingBody;
+import com.pyrostella.corpselab.plan.CorpseSourceData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.player.Player;
@@ -41,8 +42,8 @@ public final class CorpseHandler {
             return;
         }
 
-        // 站着中弹意味着在原地倒下，剩下的运动交给重力
-        Vec3 momentum = player.getDeltaMovement().scale(20.0D);
+        // 继承死亡时的三轴物理速度，保留下落、移动和已施加的击退
+        Vec3 momentum = CorpseSourceData.velocity(player);
 
         // 一击致命的爆炸会给尸体补上朝外的初速度
         Vec3 blast = event.getSource().getSourcePosition();
@@ -51,8 +52,8 @@ public final class CorpseHandler {
                     .add(0.0D, player.getBbHeight() * 0.5D, 0.0D)
                     .subtract(blast);
             if (away.lengthSqr() > 1.0e-6D) {
-                momentum = away.normalize().scale(
-                        CorpseLabConfig.SERVER.corpseExplosionLaunchMultiplier.get() * 2.0D);
+                momentum = momentum.add(away.normalize().scale(
+                        CorpseLabConfig.SERVER.corpseExplosionLaunchMultiplier.get() * 2.0D));
             }
         }
         CorpseEntity corpse = CorpseEntity.of(player, momentum);

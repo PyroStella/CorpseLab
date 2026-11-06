@@ -2,6 +2,7 @@ package com.pyrostella.corpselab.entity;
 
 import com.pyrostella.corpselab.CorpseLabRegistry;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
+import com.pyrostella.corpselab.plan.CorpseSourceData;
 import com.pyrostella.corpselab.physics.RigidBody;
 import com.pyrostella.corpselab.ragdoll.BodyPart;
 import com.pyrostella.corpselab.ragdoll.LimbPose;
@@ -44,6 +45,7 @@ public class CorpseEntity extends SettlingBody {
      * 41 到 53 号槽位保持为空
      */
     public static final int SLOT_COUNT = 54;
+    private CompoundTag sourceEntityData = new CompoundTag();
 
     private static final int ARMOUR_START = 36;
     private static final int OFFHAND_SLOT = 40;
@@ -118,6 +120,7 @@ public class CorpseEntity extends SettlingBody {
         Level level = player.level();
         CorpseEntity corpse = new CorpseEntity(CorpseLabRegistry.CORPSE.get(), level);
 
+        corpse.sourceEntityData = CorpseSourceData.capture(player);
         Vec3 feet = player.position();
         corpse.setPos(feet.x, feet.y, feet.z);
         corpse.setOwnerId(player.getUUID());
@@ -133,6 +136,11 @@ public class CorpseEntity extends SettlingBody {
 
         corpse.setSkeleton(skeleton);
         return corpse;
+    }
+
+    /** 保存死亡时包含原 UUID、物品栏和模组附加数据的完整副本 */
+    public CompoundTag sourceEntityData() {
+        return this.sourceEntityData.copy();
     }
 
     public SimpleContainer contents() {
@@ -265,6 +273,7 @@ public class CorpseEntity extends SettlingBody {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        this.sourceEntityData = tag.getCompound("SourceEntityData").copy();
         ownerName = tag.getString("OwnerName");
         setAge(tag.getInt("Age"));
         everHadItems = tag.getBoolean("HadItems");
@@ -297,6 +306,7 @@ public class CorpseEntity extends SettlingBody {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.put("SourceEntityData", this.sourceEntityData.copy());
         tag.putString("OwnerName", ownerName);
         tag.putInt("Age", age());
 

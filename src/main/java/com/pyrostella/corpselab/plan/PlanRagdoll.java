@@ -109,7 +109,7 @@ public final class PlanRagdoll {
             buildSelfCollision();
         }
 
-        if (impulse != null && impulse.lengthSqr() > 1.0E-6D) {
+        if (impulse != null) {
             for (RigidBody body : this.bodies) {
                 body.linVel.set(impulse.x, impulse.y, impulse.z);
             }
