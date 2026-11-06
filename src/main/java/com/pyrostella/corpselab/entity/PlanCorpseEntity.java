@@ -199,6 +199,16 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         return true;
     }
 
+    @Override
+    public boolean isPickable() {
+        return true;
+    }
+
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
+        return !this.level().isClientSide && this.limbs.hurt(source, amount);
+    }
+
     /** 服务端取物理骨架 */
     @Nullable
     public PlanRagdoll ragdoll() {

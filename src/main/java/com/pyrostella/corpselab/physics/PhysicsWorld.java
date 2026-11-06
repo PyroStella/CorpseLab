@@ -20,9 +20,6 @@ public final class PhysicsWorld {
     /** 采样点与实体方块的距离在此以内时，接触会保持存活 */
     private static final double CONTACT_MARGIN = 0.04D;
 
-    /** 支撑中的刚体每 tick 保留的速度比例，见 {@link #step} 末尾 */
-    private static final double REST_DAMPING = 0.85D;
-
     /** 速度的硬上限，保证一步之内没有任何东西能跑出接触余量 */
     public double maxSpeed = 128.0D;
 
@@ -97,13 +94,17 @@ public final class PhysicsWorld {
      */
     private void settle() {
         this.grounded = false;
+        for (RigidBody body : this.bodies) {
+            body.onGround = false;
+        }
         for (Contact contact : this.contacts) {
             if (!contact.isSupporting()) {
                 continue;
             }
             this.grounded = true;
-            contact.body.linVel.mul(REST_DAMPING);
-            contact.body.angVel.mul(REST_DAMPING);
+            contact.body.onGround = true;
+            contact.body.linVel.mul(contact.body.supportDamping);
+            contact.body.angVel.mul(contact.body.supportDamping);
         }
     }
 

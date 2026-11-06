@@ -104,4 +104,78 @@ public final class CorpseEnvironmentTests {
         corpse.discard();
         helper.succeed();
     }
+
+    private static void settleOnFloor(GameTestHelper helper, PlanCorpseEntity corpse,
+                                      CorpseLimbEntity limb) {
+        BlockPos centre = limb.blockPosition();
+        for (BlockPos pos : BlockPos.betweenClosed(centre.offset(-1, -1, -1), centre.offset(1, -1, 1))) {
+            helper.getLevel().setBlockAndUpdate(pos, Blocks.STONE.defaultBlockState());
+        }
+        for (int i = 0; i < 40; i++) {
+            corpse.ragdoll().step(0.05D);
+        }
+        limb.publishPose();
+        helper.assertTrue(corpse.ragdoll().body(0).onGround, "测试肢体应已落地停稳");
+    }
+
+    @GameTest(templateNamespace = "forge", template = "empty")
+    public static void groundedExplosionActuallyLiftsLimb(GameTestHelper helper) {
+        PlanCorpseEntity corpse = corpse(helper);
+        CorpseLimbEntity limb = limb(helper, corpse);
+        settleOnFloor(helper, corpse, limb);
+        RigidBody body = corpse.ragdoll().body(0);
+        double beforeY = body.pos.y;
+        helper.getLevel().explode(null, limb.getX() - 1, limb.getY(), limb.getZ(),
+                2.0F, Level.ExplosionInteraction.NONE);
+        helper.assertTrue(limb.consumeMotion(), "爆炸必须进入物理模拟");
+        helper.assertTrue(body.linVel.y >= 7.0D, "贴地爆炸必须包含受伤抬升速度");
+        for (int i = 0; i < 5; i++) {
+            corpse.ragdoll().step(0.05D);
+        }
+        helper.assertTrue(body.pos.y > beforeY + 0.25D, "受击后应确实离地，而不只是速度非零");
+        corpse.discard();
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "forge", template = "empty")
+    public static void damageKnockbackThroughCorpse(GameTestHelper helper) {
+        PlanCorpseEntity corpse = corpse(helper);
+        CorpseLimbEntity limb = limb(helper, corpse);
+        settleOnFloor(helper, corpse, limb);
+        net.minecraft.world.entity.player.Player attacker =
+                net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(helper.getLevel());
+        attacker.setPos(limb.getX() - 1, limb.getY(), limb.getZ());
+        helper.assertTrue(corpse.hurt(helper.getLevel().damageSources().playerAttack(attacker), 4),
+                "攻击尸体父实体应转发到肢体");
+        helper.assertTrue(limb.consumeMotion(), "受伤应产生击退");
+        RigidBody body = corpse.ragdoll().body(0);
+        helper.assertTrue(body.linVel.x > 7.0D && body.linVel.y > 7.0D,
+                "普通受伤应具有远离攻击者的击退和落地抬升");
+        corpse.discard();
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "forge", template = "empty")
+    public static void waterFlowOvercomesFloorFriction(GameTestHelper helper) {
+        PlanCorpseEntity corpse = corpse(helper);
+        CorpseLimbEntity limb = limb(helper, corpse);
+        settleOnFloor(helper, corpse, limb);
+        BlockPos centre = limb.blockPosition();
+        for (BlockPos pos : BlockPos.betweenClosed(centre.offset(-1, 0, -1), centre.offset(1, 1, 1))) {
+            helper.getLevel().setBlockAndUpdate(pos, Blocks.WATER.defaultBlockState());
+        }
+        helper.getLevel().setBlockAndUpdate(centre.east(),
+                Blocks.WATER.defaultBlockState().setValue(LiquidBlock.LEVEL, 7));
+        RigidBody body = corpse.ragdoll().body(0);
+        double beforeX = body.pos.x;
+        for (int i = 0; i < 30; i++) {
+            limb.tick();
+            limb.consumeMotion();
+            corpse.ragdoll().step(0.05D);
+            limb.publishPose();
+        }
+        helper.assertTrue(body.pos.x > beforeX + 0.1D, "贴地肢体必须实际被水流推动，不能被陆地摩擦锁死");
+        corpse.discard();
+        helper.succeed();
+    }
 }

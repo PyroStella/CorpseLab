@@ -127,7 +127,7 @@ public final class Contact {
         if (length < 1.0e-9D) {
             return;
         }
-        double limit = this.staticFriction * corrected;
+        double limit = this.staticFriction * this.body.frictionScale * corrected;
         if (length > limit) {
             slide.mul(limit / length);
         }
@@ -160,7 +160,7 @@ public final class Contact {
         Vector3d tangent = new Vector3d(v).fma(-vn, this.normal);
         double speed = tangent.length();
         if (speed > 1.0e-9D) {
-            double limit = this.dynamicFriction * Math.abs(vn);
+            double limit = this.dynamicFriction * this.body.frictionScale * Math.abs(vn);
             dv.set(tangent).mul(-Math.min(limit, speed) / speed);
         }
 

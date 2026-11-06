@@ -110,6 +110,11 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
         return true;
     }
 
+    @Override
+    public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
+        return !this.level().isClientSide && this.limbs.hurt(source, amount);
+    }
+
     /** 由具体尸体类型决定服务端每 tick 的行为 */
     protected abstract void serverTick();
 

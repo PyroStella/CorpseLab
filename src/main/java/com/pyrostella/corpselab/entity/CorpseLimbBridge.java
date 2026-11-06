@@ -3,6 +3,8 @@ package com.pyrostella.corpselab.entity;
 import com.pyrostella.corpselab.CorpseLabRegistry;
 import com.pyrostella.corpselab.physics.RigidBody;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +42,23 @@ final class CorpseLimbBridge {
         for (CorpseLimbEntity limb : this.limbs) {
             limb.publishPose();
         }
+    }
+
+    boolean hurt(DamageSource source, float amount) {
+        Vec3 origin = source.getSourcePosition();
+        if (origin == null) {
+            origin = this.owner.getBoundingBox().getCenter();
+        }
+        CorpseLimbEntity nearest = null;
+        double distance = Double.POSITIVE_INFINITY;
+        for (CorpseLimbEntity limb : this.limbs) {
+            double candidate = limb.position().distanceToSqr(origin);
+            if (!limb.isRemoved() && candidate < distance) {
+                nearest = limb;
+                distance = candidate;
+            }
+        }
+        return nearest != null && nearest.hurt(source, amount);
     }
 
     void clear() {

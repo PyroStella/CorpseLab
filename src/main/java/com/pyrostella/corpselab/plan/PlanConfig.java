@@ -46,7 +46,7 @@ public final class PlanConfig {
                 .comment("布娃娃形态",
                         "ARTICULATED = 有骨架：部件之间是软关节，平时连成一体，被重击拽开太远会断开",
                         "FREE = 无骨架：一个关节都不建，部件完全独立，只靠互相碰撞和地面堆成一摊")
-                .defineEnum("mode", PlanMode.ARTICULATED);
+                .defineEnum("mode", PlanMode.FREE);
 
         MAX_AGE_TICKS = builder
                 .comment("尸体存在多少 tick 后消失。20 tick = 1 秒，默认 2400 = 2 分钟")

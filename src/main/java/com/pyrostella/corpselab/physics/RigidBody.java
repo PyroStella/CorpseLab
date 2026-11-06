@@ -36,6 +36,12 @@ public final class RigidBody {
     public double linearDamping = 1.0D;
     public double angularDamping = 1.0D;
 
+    /** 环境参数默认为陆地值，仅浸水部件调整，不改变干燥尸体的物理效果 */
+    public double gravityScale = 1.0D;
+    public double frictionScale = 1.0D;
+    public double supportDamping = 0.85D;
+    public boolean onGround;
+
     private final Vector3d scratch = new Vector3d();
 
     public RigidBody(Vector3d halfExtents, double mass) {
@@ -78,7 +84,7 @@ public final class RigidBody {
         prevPos.set(pos);
         prevRot.set(rot);
 
-        linVel.fma(h, gravity);
+        linVel.fma(h * this.gravityScale, gravity);
         linVel.mul(linearDamping);
         pos.fma(h, linVel);
 
