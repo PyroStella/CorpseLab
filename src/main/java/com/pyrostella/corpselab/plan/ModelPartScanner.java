@@ -70,6 +70,11 @@ public final class ModelPartScanner {
 
     /** 骨架 + 部件对应关系（客户端渲染要用后者） */
     public static ScanResult scanDetailed(EntityModel<?> model) {
+        return scanDetailed(model, false);
+    }
+
+    /** 尸体绑定需要完整部件表，不受共享模型当前动画的可见性影响 */
+    public static ScanResult scanDetailed(EntityModel<?> model, boolean includeHidden) {
         List<BodyPlan.Box> boxes = new ArrayList<>();
         List<BodyPlan.Joint> treeJoints = new ArrayList<>();
         List<PartRef> parts = new ArrayList<>();
@@ -81,7 +86,7 @@ public final class ModelPartScanner {
         ModelTopology.Table topology = ModelTopology.tableFor(model);
         for (RootRef root : roots(model, topology)) {
             walk(root.part(), root.path(), root.group(), -1, 0.0D, 0.0D, 0.0D,
-                    boxes, treeJoints, parts, visited);
+                    boxes, treeJoints, parts, visited, includeHidden);
         }
 
         List<BodyPlan.Joint> joints = ModelTopology.resolve(
@@ -142,7 +147,7 @@ public final class ModelPartScanner {
     private static void walk(ModelPart part, String path, PartGroup group, int parentBoxIndex,
                              double parentX, double parentY, double parentZ,
                              List<BodyPlan.Box> boxes, List<BodyPlan.Joint> treeJoints,
-                             List<PartRef> parts, Set<ModelPart> visited) {
+                             List<PartRef> parts, Set<ModelPart> visited, boolean includeHidden) {
         if (!visited.add(part)) {
             return;
         }
@@ -154,7 +159,7 @@ public final class ModelPartScanner {
 
         int selfIndex = parentBoxIndex;
 
-        if (part.visible && !part.cubes.isEmpty()) {
+        if ((includeHidden || part.visible) && !part.cubes.isEmpty()) {
             double minX = Double.MAX_VALUE;
             double minY = Double.MAX_VALUE;
             double minZ = Double.MAX_VALUE;
@@ -202,7 +207,7 @@ public final class ModelPartScanner {
 
         for (Map.Entry<String, ModelPart> entry : part.children.entrySet()) {
             walk(entry.getValue(), path.isEmpty() ? entry.getKey() : path + "." + entry.getKey(),
-                    group, selfIndex, x, y, z, boxes, treeJoints, parts, visited);
+                    group, selfIndex, x, y, z, boxes, treeJoints, parts, visited, includeHidden);
         }
     }
 }

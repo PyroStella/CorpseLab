@@ -78,7 +78,7 @@ public final class PlanModelCache {
         }
 
         EntityModel<?> model = livingRenderer.getModel();
-        ModelPartScanner.ScanResult result = ModelPartScanner.scanDetailed(model);
+        ModelPartScanner.ScanResult result = ModelPartScanner.scanDetailed(model, true);
         if (result.parts().isEmpty()) {
             return null;
         }

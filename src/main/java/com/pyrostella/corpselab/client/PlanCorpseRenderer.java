@@ -49,8 +49,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
 
         EntityType<?> sourceType = ForgeRegistries.ENTITY_TYPES.getValue(entity.sourceType());
         PlanModelCache.Binding binding = sourceType == null ? null : PlanModelCache.get(sourceType);
-        if (binding == null || binding.parts().size() != plan.boxCount()) {
-            // 拿不到模型，或者模型结构与骨架对不上时跳过
+        if (binding == null) {
             return;
         }
 
@@ -69,8 +68,13 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         double renderZ = Mth.lerp(partialTick, entity.zOld, entity.getZ());
 
         for (BodyPlan.Box box : plan.boxes()) {
-            PartRef ref = binding.parts().get(box.index());
-            BodyPlan.Box modelBox = binding.plan().boxes().get(box.index());
+            // 骨架只包含生成时可见的部件，完整模型表按路径匹配，不能依赖数量或下标相同
+            BodyPlan.Box modelBox = binding.plan().boxes().stream()
+                    .filter(candidate -> candidate.path().equals(box.path())).findFirst().orElse(null);
+            if (modelBox == null) {
+                continue;
+            }
+            PartRef ref = binding.parts().get(modelBox.index());
             var position = poses.position(box.index());
             Quaternionf rotation = poses.rotation(box.index(), new Quaternionf());
 
@@ -112,6 +116,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         float savedYRot = part.yRot;
         float savedZRot = part.zRot;
         boolean savedSkip = part.skipDraw;
+        boolean savedVisible = part.visible;
         Map<String, ModelPart> savedChildren = new HashMap<>(part.children);
 
         try {
@@ -122,6 +127,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
             part.yRot = 0.0F;
             part.zRot = 0.0F;
             part.skipDraw = false;
+            part.visible = true;
             part.children.clear();
 
             part.render(poseStack, consumer, packedLight, OverlayTexture.NO_OVERLAY);
@@ -133,6 +139,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
             part.yRot = savedYRot;
             part.zRot = savedZRot;
             part.skipDraw = savedSkip;
+            part.visible = savedVisible;
             part.children.putAll(savedChildren);
         }
     }
