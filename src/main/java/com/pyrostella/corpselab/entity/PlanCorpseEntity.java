@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
+import org.joml.Quaterniond;
+import org.joml.Quaterniondc;
 import org.joml.Vector3d;
 
 import com.pyrostella.corpselab.CorpseLab;
@@ -24,11 +26,15 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -44,6 +50,8 @@ import net.minecraftforge.network.PacketDistributor;
 public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     private static final BodyPlan EMPTY = new BodyPlan(List.of(), List.of());
+    private static final EntityDataAccessor<Float> CORPSE_SIZE = SynchedEntityData.defineId(
+            PlanCorpseEntity.class, EntityDataSerializers.FLOAT);
 
     /** 客户端保存最近两帧姿态用于插值 */
     @Nullable
@@ -90,6 +98,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
         corpse.plan = plan;
         corpse.sourceType = sourceType;
+        corpse.setCorpseSize(source == null ? sourceWidth(sourceType) : source.getBbWidth());
         corpse.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
 
         // 同区域尸体数量上限：超出时删最老的，避免一地尸体拖垮服务端
@@ -120,6 +129,8 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         if (this.level().isClientSide) {
             if (this.poses != null) {
                 this.poses.onClientTick();
+                this.poses.sample(1.0F);
+                this.updateClientBounds();
             }
             return;
         }
@@ -236,6 +247,8 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
             this.poses = new PoseBuffer(positions.length);
         }
         this.poses.push(positions, rotations);
+        this.poses.sample(1.0F);
+        this.updateClientBounds();
     }
 
     /** 让用于追踪、碰撞箱和服务端查询的实体位置跟随物理尸体 */
@@ -245,38 +258,103 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         }
         Vector3d centre = this.ragdoll.centreOfMass(new Vector3d());
         this.setPos(centre.x, centre.y, centre.z);
+        // 质心不动时最大块仍可能移动或旋转，不能只依赖实体位移刷新边界
+        this.setBoundingBox(this.makeBoundingBox());
     }
 
-    /** 服务端查询抓取目标时必须覆盖所有刚体，不能只覆盖质心附近 */
+    /** 两端均只跟随体积最大的块，客户端使用同步后的姿态 */
     @Override
     protected AABB makeBoundingBox() {
-        if (this.ragdoll == null || this.ragdoll.bodies().isEmpty()) {
-            return super.makeBoundingBox();
+        if (!this.level().isClientSide && this.ragdoll != null) {
+            RigidBody largest = null;
+            double largestVolume = -1.0D;
+            for (RigidBody body : this.ragdoll.bodies()) {
+                double volume = body.halfExtents.x * body.halfExtents.y * body.halfExtents.z;
+                if (volume > largestVolume) {
+                    largest = body;
+                    largestVolume = volume;
+                }
+            }
+            if (largest != null) {
+                return blockBounds(largest.pos, largest.rot, largest.halfExtents);
+            }
         }
+        if (this.level().isClientSide && this.poses != null && this.poses.hasPose()
+                && this.poses.partCount() == this.plan.boxCount()) {
+            BodyPlan.Box largest = null;
+            double largestVolume = -1.0D;
+            for (BodyPlan.Box box : this.plan.boxes()) {
+                double volume = box.hx() * box.hy() * box.hz();
+                if (volume > largestVolume) {
+                    largest = box;
+                    largestVolume = volume;
+                }
+            }
+            if (largest != null) {
+                Vec3 pos = this.poses.position(largest.index());
+                Quaternionf rot = this.poses.rotation(largest.index(), new Quaternionf());
+                return blockBounds(new Vector3d(pos.x, pos.y, pos.z), new Quaterniond(rot),
+                        new Vector3d(largest.hx(), largest.hy(), largest.hz()));
+            }
+        }
+        return this.grabSearchBounds();
+    }
 
-        double minX = Double.POSITIVE_INFINITY;
-        double minY = Double.POSITIVE_INFINITY;
-        double minZ = Double.POSITIVE_INFINITY;
-        double maxX = Double.NEGATIVE_INFINITY;
-        double maxY = Double.NEGATIVE_INFINITY;
-        double maxZ = Double.NEGATIVE_INFINITY;
-        for (RigidBody body : this.ragdoll.bodies()) {
-            // 旋转盒的轴对齐边界不会超过其外接球
-            double radius = body.halfExtents.length();
-            minX = Math.min(minX, body.pos.x - radius);
-            minY = Math.min(minY, body.pos.y - radius);
-            minZ = Math.min(minZ, body.pos.z - radius);
-            maxX = Math.max(maxX, body.pos.x + radius);
-            maxY = Math.max(maxY, body.pos.y + radius);
-            maxZ = Math.max(maxZ, body.pos.z + radius);
+    /** 渲染采样后刷新，确保客户端盒与这一帧的最大块模型一致 */
+    public void updateClientBounds() {
+        if (this.level().isClientSide) {
+            this.setBoundingBox(this.makeBoundingBox());
         }
-        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+    }
+
+    /** 原版实体盒只能轴对齐，两端共用旋转盒的精确外接范围计算 */
+    private static AABB blockBounds(Vector3d pos, Quaterniondc rotation, Vector3d half) {
+        Vector3d x = rotation.transform(new Vector3d(half.x, 0, 0));
+        Vector3d y = rotation.transform(new Vector3d(0, half.y, 0));
+        Vector3d z = rotation.transform(new Vector3d(0, 0, half.z));
+        double hx = Math.abs(x.x) + Math.abs(y.x) + Math.abs(z.x);
+        double hy = Math.abs(x.y) + Math.abs(y.y) + Math.abs(z.y);
+        double hz = Math.abs(x.z) + Math.abs(y.z) + Math.abs(z.z);
+        return new AABB(pos.x - hx, pos.y - hy, pos.z - hz,
+                pos.x + hx, pos.y + hy, pos.z + hz);
+    }
+
+    /** 抓取粗筛保留原来的质心和尺寸，不受服务端逻辑盒变更影响 */
+    public AABB grabSearchBounds() {
+        double half = this.entityData.get(CORPSE_SIZE) * 0.5D;
+        return new AABB(this.getX() - half, this.getY() - half, this.getZ() - half,
+                this.getX() + half, this.getY() + half, this.getZ() + half);
+    }
+
+    @Override
+    public EntityDimensions getDimensions(Pose pose) {
+        float size = this.entityData.get(CORPSE_SIZE);
+        return EntityDimensions.scalable(size, size);
+    }
+
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (CORPSE_SIZE.equals(key)) {
+            this.refreshDimensions();
+            this.setBoundingBox(this.makeBoundingBox());
+        }
+    }
+
+    private void setCorpseSize(float size) {
+        this.entityData.set(CORPSE_SIZE, Float.isFinite(size) && size > 0.0F ? size : 0.8F);
+    }
+
+    /** 旧存档没有实例尺寸，只能回退到原类型的默认宽度 */
+    private static float sourceWidth(ResourceLocation sourceType) {
+        return EntityType.byString(sourceType.toString()).map(EntityType::getWidth).orElse(0.8F);
     }
 
     // ---------- 存档 ----------
 
     @Override
     protected void defineSynchedData() {
+        this.entityData.define(CORPSE_SIZE, 0.8F);
     }
 
     @Override
@@ -285,6 +363,8 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         if (tag.contains("SourceType")) {
             this.sourceType = new ResourceLocation(tag.getString("SourceType"));
         }
+        this.setCorpseSize(tag.contains("CorpseSize")
+                ? tag.getFloat("CorpseSize") : sourceWidth(this.sourceType));
         if (tag.contains("Plan")) {
             try {
                 FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(tag.getByteArray("Plan")));
@@ -306,6 +386,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putInt("Age", this.age);
         tag.putString("SourceType", this.sourceType.toString());
+        tag.putFloat("CorpseSize", this.entityData.get(CORPSE_SIZE));
         if (this.plan.boxCount() > 0) {
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
             BodyPlanCodec.write(buf, this.plan);

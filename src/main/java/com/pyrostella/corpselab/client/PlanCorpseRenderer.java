@@ -54,6 +54,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         }
 
         poses.sample(partialTick);
+        entity.updateClientBounds();
 
         ResourceLocation texture;
         try {
