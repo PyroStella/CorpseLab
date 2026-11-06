@@ -32,6 +32,8 @@ public final class CorpseLabClient {
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(CorpseLabRegistry.CORPSE.get(), RagdollEntityRenderer::new);
             event.registerEntityRenderer(CorpseLabRegistry.PLAN_CORPSE.get(), PlanCorpseRenderer::new);
+            event.registerEntityRenderer(CorpseLabRegistry.CORPSE_LIMB.get(),
+                    net.minecraft.client.renderer.entity.NoopRenderer::new);
         }
     }
 

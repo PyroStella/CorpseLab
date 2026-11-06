@@ -50,8 +50,7 @@ import net.minecraftforge.network.PacketDistributor;
 public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     private static final BodyPlan EMPTY = new BodyPlan(List.of(), List.of());
-    private static final EntityDataAccessor<Float> CORPSE_SIZE = SynchedEntityData.defineId(
-            PlanCorpseEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> CORPSE_SIZE = SynchedEntityData.defineId(PlanCorpseEntity.class, EntityDataSerializers.FLOAT);
 
     /** 客户端保存最近两帧姿态用于插值 */
     @Nullable
@@ -71,6 +70,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     /** 仅服务端持有的抓取状态 */
     private final CorpseGrabState grab = new CorpseGrabState();
+    private final CorpseLimbBridge limbs = new CorpseLimbBridge(this);
 
     public PlanCorpseEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -145,15 +145,18 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
             return;
         }
 
+        boolean environmentChanged = this.limbs.consume(this.ragdoll.bodies());
+
         this.grab.apply(this.level(), this.ragdoll.bodies());
 
         // 远处冻结：不跑物理也不发姿态，玩家走近会接着模拟，省 CPU
-        if (!this.grab.isGrabbed() && !this.hasNearbyPlayer()) {
+        if (!environmentChanged && !this.grab.isGrabbed() && !this.hasNearbyPlayer()) {
             return;
         }
 
         this.ragdoll.step(0.05D);
         this.syncAnchorToRagdoll();
+        this.limbs.publish();
 
         // 已经躺稳的尸体没必要每 tick 全量发姿态，降频到 1 秒一次
         boolean settled = this.ragdoll.isSettled();
@@ -182,6 +185,18 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     /** 存在了多少 tick，用于过期清理和最老优先淘汰 */
     public int age() {
         return this.age;
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        this.limbs.clear();
+        super.remove(reason);
+    }
+
+    @Override
+    public boolean ignoreExplosion() {
+        // 爆炸由每个肢体接收，父实体不重复受力
+        return true;
     }
 
     /** 服务端取物理骨架 */
@@ -308,7 +323,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     }
 
     /** 原版实体盒只能轴对齐，两端共用旋转盒的精确外接范围计算 */
-    private static AABB blockBounds(Vector3d pos, Quaterniondc rotation, Vector3d half) {
+    static AABB blockBounds(Vector3d pos, Quaterniondc rotation, Vector3d half) {
         Vector3d x = rotation.transform(new Vector3d(half.x, 0, 0));
         Vector3d y = rotation.transform(new Vector3d(0, half.y, 0));
         Vector3d z = rotation.transform(new Vector3d(0, 0, half.z));

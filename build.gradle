@@ -49,6 +49,13 @@ minecraft {
             args '--nogui'
         }
 
+        gameTestServer {
+            workingDirectory project.file('run-gametest')
+            property 'forge.enabledGameTestNamespaces', "${mod_id},forge"
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+        }
+
         data {
             workingDirectory project.file('run-data')
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
@@ -92,6 +99,16 @@ tasks.named('test', Test).configure {
     testLogging {
         events 'passed', 'failed', 'skipped'
         showStandardStreams = false
+    }
+}
+
+// 独立测试世界使用源码中的空结构，不依赖开发者本地已有的世界或模板
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst {
+        copy {
+            from 'src/test/resources/gameteststructures'
+            into 'run-gametest/gameteststructures'
+        }
     }
 }
 

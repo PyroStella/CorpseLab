@@ -42,6 +42,7 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
 
     /** 仅服务端持有的抓取状态 */
     private final CorpseGrabState grab = new CorpseGrabState();
+    private final CorpseLimbBridge limbs = new CorpseLimbBridge(this);
 
     public RagdollEntity(EntityType<? extends RagdollEntity> type, Level level) {
         super(type, level);
@@ -91,7 +92,22 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
             return;
         }
 
+        if (this.limbs.consume(this.skeleton.bodies())) {
+            this.wakeForGrab();
+        }
         serverTick();
+        this.limbs.publish();
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        this.limbs.clear();
+        super.remove(reason);
+    }
+
+    @Override
+    public boolean ignoreExplosion() {
+        return true;
     }
 
     /** 由具体尸体类型决定服务端每 tick 的行为 */

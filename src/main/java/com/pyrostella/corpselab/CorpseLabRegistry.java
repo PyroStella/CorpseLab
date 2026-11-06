@@ -2,6 +2,7 @@ package com.pyrostella.corpselab;
 
 import com.pyrostella.corpselab.entity.CorpseEntity;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
+import com.pyrostella.corpselab.entity.CorpseLimbEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.registries.DeferredRegister;
@@ -36,6 +37,17 @@ public final class CorpseLabRegistry {
                     .noSummon()
                     .fireImmune()
                     .build("plan_corpse"));
+
+    /** 肢体不独立存档，随所属尸体重建，客户端继续绘制整具模型 */
+    public static final RegistryObject<EntityType<CorpseLimbEntity>> CORPSE_LIMB =
+            ENTITY_TYPES.register("corpse_limb", () -> EntityType.Builder
+                    .<CorpseLimbEntity>of(CorpseLimbEntity::new, MobCategory.MISC)
+                    .sized(0.1F, 0.1F)
+                    .clientTrackingRange(0)
+                    .noSave()
+                    .noSummon()
+                    .fireImmune()
+                    .build("corpse_limb"));
 
     private CorpseLabRegistry() {
     }
