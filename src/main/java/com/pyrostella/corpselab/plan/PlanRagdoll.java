@@ -66,9 +66,14 @@ public final class PlanRagdoll {
      */
     public PlanRagdoll(BodyPlan plan, double x, double y, double z, double yaw, Vec3 impulse,
                        @Nullable PlanPose.Frame[] pose) {
+        this(plan,x,y,z,yaw,impulse,pose,PlanConfig.mode() == PlanConfig.PlanMode.ARTICULATED);
+    }
+
+    public PlanRagdoll(BodyPlan plan,double x,double y,double z,double yaw,Vec3 impulse,
+                       @Nullable PlanPose.Frame[] pose,boolean articulated) {
         this.plan = plan;
         this.bodies = new RigidBody[plan.boxCount()];
-        this.articulated = PlanConfig.mode() == PlanConfig.PlanMode.ARTICULATED;
+        this.articulated = articulated;
         this.world.iterations = PlanConfig.solverIterations();
 
         // 原版把模型画成 rotateY(180 - yaw) 再 scale(-1,-1,1)。少了前半圈的话，尸体在 yaw=0
@@ -525,6 +530,64 @@ public final class PlanRagdoll {
             }
         }
         return broken;
+    }
+
+    /** 按实际仍有效的物理关节判断连通性，FREE 模式仅包含基准块 */
+    public boolean[] connectedTo(int base) {
+        int[] components = new int[this.bodies.length];
+        var indices = new java.util.IdentityHashMap<RigidBody,Integer>();
+        for (int i = 0; i < components.length; i++) { components[i] = i; indices.put(this.bodies[i],i); }
+        for (Constraint constraint : this.world.constraints) {
+            if (constraint instanceof SphericalJoint joint && !joint.isBroken()) {
+                int a = component(components,indices.get(joint.bodyA));
+                int b = component(components,indices.get(joint.bodyB));
+                components[a] = b;
+            }
+        }
+        boolean[] connected = new boolean[components.length];
+        int root = component(components,base);
+        for (int i = 0; i < connected.length; i++) connected[i] = component(components,i) == root;
+        return connected;
+    }
+
+    private static int component(int[] components,int index) {
+        while (components[index] != index) { components[index] = components[components[index]]; index = components[index]; }
+        return index;
+    }
+    /** 保存实际姿态和关节断裂，避免重载后把断肢当作仍连接的肢体 */
+    public net.minecraft.nbt.CompoundTag saveState() {
+        var tag = new net.minecraft.nbt.CompoundTag();
+        tag.putBoolean("Articulated",this.articulated);
+        var parts = new net.minecraft.nbt.ListTag();
+        for (RigidBody body : this.bodies) {
+            var part = new net.minecraft.nbt.CompoundTag();
+            part.putDouble("X",body.pos.x); part.putDouble("Y",body.pos.y); part.putDouble("Z",body.pos.z);
+            part.putDouble("QX",body.rot.x); part.putDouble("QY",body.rot.y); part.putDouble("QZ",body.rot.z); part.putDouble("QW",body.rot.w);
+            part.putDouble("VX",body.linVel.x); part.putDouble("VY",body.linVel.y); part.putDouble("VZ",body.linVel.z);
+            part.putDouble("WX",body.angVel.x); part.putDouble("WY",body.angVel.y); part.putDouble("WZ",body.angVel.z);
+            parts.add(part);
+        }
+        tag.put("Parts",parts);
+        var broken = new net.minecraft.nbt.ListTag();
+        for (Constraint constraint : this.world.constraints) if (constraint instanceof SphericalJoint joint)
+            broken.add(net.minecraft.nbt.ByteTag.valueOf(joint.isBroken()));
+        tag.put("Broken",broken); return tag;
+    }
+
+    public void loadState(net.minecraft.nbt.CompoundTag tag) {
+        var parts = tag.getList("Parts",10);
+        if (parts.size() != this.bodies.length) throw new IllegalArgumentException("刚体存档数量不符");
+        for (int i = 0; i < parts.size(); i++) {
+            var part = parts.getCompound(i); var body = this.bodies[i];
+            body.pos.set(part.getDouble("X"),part.getDouble("Y"),part.getDouble("Z"));
+            body.rot.set(part.getDouble("QX"),part.getDouble("QY"),part.getDouble("QZ"),part.getDouble("QW")).normalize();
+            body.linVel.set(part.getDouble("VX"),part.getDouble("VY"),part.getDouble("VZ"));
+            body.angVel.set(part.getDouble("WX"),part.getDouble("WY"),part.getDouble("WZ"));
+        }
+        var broken = tag.getList("Broken",1); int index = 0;
+        for (Constraint constraint : this.world.constraints) if (constraint instanceof SphericalJoint joint) {
+            joint.restoreBroken(index < broken.size() && ((net.minecraft.nbt.ByteTag)broken.get(index)).getAsByte() != 0); index++;
+        }
     }
 
     public boolean isSettled() {

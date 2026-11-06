@@ -54,6 +54,8 @@ public final class LayerPartContext implements AutoCloseable {
             if (original == null) {
                 continue;
             }
+            float revivalScale = this.corpse.limbScale(target.index());
+            if (revivalScale <= 0) continue;
             var ref = this.base.parts().get(original.index());
             var position = this.corpse.poses().position(target.index());
             PoseStack transform = new PoseStack();
@@ -63,6 +65,7 @@ public final class LayerPartContext implements AutoCloseable {
                     position.y - Mth.lerp(this.partialTick, this.corpse.yOld, this.corpse.getY()),
                     position.z - Mth.lerp(this.partialTick, this.corpse.zOld, this.corpse.getZ()));
             transform.mulPose(this.corpse.poses().rotation(target.index(), new Quaternionf()));
+            transform.scale(revivalScale,revivalScale,revivalScale);
             transform.scale(-1, -1, 1);
             transform.scale(scale(target.hx(), original.hx()), scale(target.hy(), original.hy()),
                     scale(target.hz(), original.hz()));

@@ -25,27 +25,31 @@ public final class PlanPosePacket {
     private final double anchorZ;
     private final Vec3[] offsets;
     private final Quaternionf[] rotations;
+    private final float[] scales;
 
     private PlanPosePacket(int entityId, double anchorX, double anchorY, double anchorZ,
-                           Vec3[] offsets, Quaternionf[] rotations) {
+                           Vec3[] offsets, Quaternionf[] rotations,float[] scales) {
         this.entityId = entityId;
         this.anchorX = anchorX;
         this.anchorY = anchorY;
         this.anchorZ = anchorZ;
         this.offsets = offsets;
         this.rotations = rotations;
+        this.scales = scales;
     }
 
     public static PlanPosePacket of(PlanCorpseEntity entity) {
         List<RigidBody> bodies = entity.rigidBodies();
         Vec3[] offsets = new Vec3[bodies.size()];
         Quaternionf[] rotations = new Quaternionf[bodies.size()];
+        float[] scales = new float[bodies.size()];
         double anchorX = entity.getX();
         double anchorY = entity.getY();
         double anchorZ = entity.getZ();
 
         for (int i = 0; i < bodies.size(); i++) {
             RigidBody body = bodies.get(i);
+            scales[i] = entity.limbScale(i);
             offsets[i] = new Vec3(
                     body.pos.x - anchorX,
                     body.pos.y - anchorY,
@@ -55,7 +59,7 @@ public final class PlanPosePacket {
                     (float) body.rot.z, (float) body.rot.w);
         }
 
-        return new PlanPosePacket(entity.getId(), anchorX, anchorY, anchorZ, offsets, rotations);
+        return new PlanPosePacket(entity.getId(), anchorX, anchorY, anchorZ, offsets, rotations,scales);
     }
 
     public PlanPosePacket(FriendlyByteBuf buf) {
@@ -63,13 +67,17 @@ public final class PlanPosePacket {
         this.anchorX = buf.readDouble();
         this.anchorY = buf.readDouble();
         this.anchorZ = buf.readDouble();
-        int count = com.pyrostella.corpselab.util.PacketReads.count(buf, 28);
+        int count = com.pyrostella.corpselab.util.PacketReads.count(buf, 32);
         this.offsets = new Vec3[count];
         this.rotations = new Quaternionf[count];
+        this.scales = new float[count];
         for (int i = 0; i < count; i++) {
             this.offsets[i] = new Vec3(buf.readFloat(), buf.readFloat(), buf.readFloat());
             this.rotations[i] = new Quaternionf(
                     buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat());
+            this.scales[i] = buf.readFloat();
+            if (!Float.isFinite(this.scales[i]) || this.scales[i] < 0 || this.scales[i] > 1)
+                throw new io.netty.handler.codec.DecoderException("无效的复活缩放");
         }
     }
 
@@ -87,6 +95,7 @@ public final class PlanPosePacket {
             buf.writeFloat(this.rotations[i].y);
             buf.writeFloat(this.rotations[i].z);
             buf.writeFloat(this.rotations[i].w);
+            buf.writeFloat(this.scales[i]);
         }
     }
 
@@ -94,7 +103,7 @@ public final class PlanPosePacket {
         context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> PlanCorpseClientHandler.acceptPose(
                         this.entityId, this.anchorX, this.anchorY, this.anchorZ,
-                        this.offsets, this.rotations)));
+                        this.offsets, this.rotations,this.scales)));
         context.get().setPacketHandled(true);
     }
 

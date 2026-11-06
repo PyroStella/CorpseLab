@@ -71,6 +71,9 @@ public final class SphericalJoint implements Constraint {
         return this.worldAnchorA.distance(this.worldAnchorB);
     }
 
+    /** 仅用于恢复已保存的断裂状态 */
+    public void restoreBroken(boolean broken) { this.broken = broken; this.breakTicks = 0; }
+
     public boolean isBroken() {
         return this.broken;
     }

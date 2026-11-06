@@ -49,6 +49,8 @@ minecraft {
             args '--mixin.config', 'corpselab.mixins.json', '--mixin.config', 'corpselab.gecko.mixins.json'
             if (project.hasProperty('corpseRenderTest')) {
                 property 'corpselab.renderTest', 'true'
+                if (project.hasProperty('renderTestDirectory')) workingDirectory project.file(project.property('renderTestDirectory'))
+                if (project.hasProperty('revivalSceneTest')) property 'corpselab.revivalSceneTest', 'true'
                 if (project.hasProperty('geckoPhysicsTest')) {
                     property 'corpselab.geckoPhysicsTest', 'true'
                 }

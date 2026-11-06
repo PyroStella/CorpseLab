@@ -51,6 +51,8 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         double renderZ = Mth.lerp(partialTick, entity.zOld, entity.getZ());
 
         for (BodyPlan.Box box : plan.boxes()) {
+            float scale = poses.scale(box.index());
+            if (scale <= 0) continue;
             var position = poses.position(box.index());
             Quaternionf rotation = poses.rotation(box.index(), new Quaternionf());
 
@@ -60,6 +62,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
                         position.y - renderY,
                         position.z - renderZ);
                 poseStack.mulPose(rotation);
+                poseStack.scale(scale,scale,scale);
                 parts.render(box, poseStack, packedLight);
             } finally {
                 poseStack.popPose();

@@ -54,6 +54,8 @@ public final class PlanCorpseHandler {
             CorpseLabNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
                     new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan(), corpse.appearance()));
+            CorpseLabNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
+                    com.pyrostella.corpselab.net.PlanPosePacket.of(corpse));
         }
     }
 }

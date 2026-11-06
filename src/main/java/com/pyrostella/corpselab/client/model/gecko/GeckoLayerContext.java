@@ -26,6 +26,8 @@ public final class GeckoLayerContext implements AutoCloseable {
         for (var base : scan.plan().boxes()) {
             var actual = targets.get(base.path());
             if (actual == null) continue;
+            float revivalScale = corpse.limbScale(actual.index());
+            if (revivalScale <= 0) continue;
             var part = scan.parts().get(base.index());
             var position = corpse.poses().position(actual.index());
             PoseStack stack = new PoseStack();
@@ -35,6 +37,7 @@ public final class GeckoLayerContext implements AutoCloseable {
                     position.y-Mth.lerp(tick, corpse.yOld, corpse.getY()),
                     position.z-Mth.lerp(tick, corpse.zOld, corpse.getZ()));
             stack.mulPose(corpse.poses().rotation(actual.index(), new Quaternionf()));
+            stack.scale(revivalScale,revivalScale,revivalScale);
             stack.scale((float)(actual.hx()/base.hx()), (float)(actual.hy()/base.hy()), (float)(actual.hz()/base.hz()));
             stack.translate(base.cx(), base.cy()-1.501, -base.cz());
             stack.mulPoseMatrix(part.transform());
