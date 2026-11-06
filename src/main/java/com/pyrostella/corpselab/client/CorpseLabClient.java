@@ -3,6 +3,9 @@ package com.pyrostella.corpselab.client;
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.CorpseLabRegistry;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
+import com.pyrostella.corpselab.entity.CorpseInteraction;
+import net.minecraft.world.InteractionHand;
+import net.minecraftforge.client.event.InputEvent;
 import com.pyrostella.corpselab.net.RagdollGrabPacket;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import net.minecraft.client.Minecraft;
@@ -68,6 +71,30 @@ public final class CorpseLabClient {
             }
             grabbing = down;
             CorpseLabNetwork.CHANNEL.sendToServer(new RagdollGrabPacket(down));
+        }
+
+        @SubscribeEvent
+        public static void onUseItem(InputEvent.InteractionKeyMappingTriggered event) {
+            if (!event.isUseItem() || event.getHand() != InteractionHand.MAIN_HAND) {
+                return;
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.player == null || minecraft.level == null || minecraft.gameMode == null) {
+                return;
+            }
+            var hit = CorpseInteraction.pickLootTarget(minecraft.player, minecraft.player.getEntityReach());
+            if (hit == null) {
+                return;
+            }
+            // 继续使用原版交互包和服务端搜刮入口，不改变全局准星目标
+            var result = minecraft.gameMode.interactAt(minecraft.player, hit.getEntity(), hit, event.getHand());
+            if (!result.consumesAction()) {
+                result = minecraft.gameMode.interact(minecraft.player, hit.getEntity(), event.getHand());
+            }
+            if (result.consumesAction()) {
+                event.setCanceled(true);
+                event.setSwingHand(result.shouldSwing());
+            }
         }
 
         @SubscribeEvent

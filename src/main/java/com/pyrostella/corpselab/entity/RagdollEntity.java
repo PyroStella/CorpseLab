@@ -111,6 +111,11 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
     }
 
     @Override
+    public boolean isAttackable() {
+        return false;
+    }
+
+    @Override
     public boolean hurt(net.minecraft.world.damagesource.DamageSource source, float amount) {
         return !this.level().isClientSide && this.limbs.hurt(source, amount);
     }
@@ -199,11 +204,6 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
         // 直接对齐而不做插值，原因见 tick() 中的说明
         setPos(x, y, z);
         setRot(yaw, pitch);
-    }
-
-    @Override
-    public boolean isPickable() {
-        return false;
     }
 
     @Override

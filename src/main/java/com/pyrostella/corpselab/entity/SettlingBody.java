@@ -118,11 +118,6 @@ public abstract class SettlingBody extends RagdollEntity {
         return true;
     }
 
-    @Override
-    public boolean isPickable() {
-        return true;
-    }
-
     /**
      * 用包住整具身体的盒子，而不是注册时给的那个立方体
      *

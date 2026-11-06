@@ -86,8 +86,14 @@ public final class CorpseLimbEntity extends Entity {
     }
 
     @Override
+    public boolean isAttackable() {
+        return false;
+    }
+
+    @Override
     public boolean hurt(DamageSource source, float amount) {
-        if (this.level().isClientSide || this.body == null || !(amount > 0)
+        if (CorpseInteraction.isPlayerDamage(source)
+                || this.level().isClientSide || this.body == null || !(amount > 0)
                 || this.isInvulnerableTo(source)) {
             return false;
         }

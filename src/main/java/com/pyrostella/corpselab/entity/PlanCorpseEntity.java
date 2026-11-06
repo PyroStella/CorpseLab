@@ -221,7 +221,12 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     public boolean isPickable() {
-        return true;
+        return false;
+    }
+
+    @Override
+    public boolean isAttackable() {
+        return false;
     }
 
     @Override

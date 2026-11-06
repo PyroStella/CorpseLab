@@ -45,6 +45,9 @@ final class CorpseLimbBridge {
     }
 
     boolean hurt(DamageSource source, float amount) {
+        if (CorpseInteraction.isPlayerDamage(source)) {
+            return false;
+        }
         Vec3 origin = source.getSourcePosition();
         if (origin == null) {
             origin = this.owner.getBoundingBox().getCenter();

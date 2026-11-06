@@ -332,12 +332,6 @@ public class CorpseEntity extends SettlingBody {
         BodyPose.write(tag, skeleton());
     }
 
-    @Override
-    public boolean isPickable() {
-        // 尸体必须能被点击才能被搜刮
-        return true;
-    }
-
     /**
      * 包住整个身体的盒子，而不是注册的 0.6 立方体
      *
