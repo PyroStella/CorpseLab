@@ -3,6 +3,7 @@ package com.pyrostella.corpselab.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pyrostella.corpselab.CorpseLab;
+import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import com.pyrostella.corpselab.entity.PoseBuffer;
 import com.pyrostella.corpselab.entity.RagdollEntity;
@@ -55,28 +56,19 @@ public final class CollisionBoxRenderer {
     private static final float RAGDOLL_GREEN = 0.80F;
     private static final float RAGDOLL_BLUE = 0.30F;
 
-    /** 默认关着：这是排障视图，只在玩家敲过 /cl 之后才画 */
-    private static boolean enabled;
-
     /** 打开后只汇报一次，免得每帧刷日志 */
     private static boolean reported;
 
     private CollisionBoxRenderer() {
     }
 
-    public static boolean isEnabled() {
-        return enabled;
-    }
-
-    /** 命令调这里；状态只存在内存里，重进世界就回到关闭 */
-    public static void setEnabled(boolean value) {
-        enabled = value;
-        reported = false;
-    }
-
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (!enabled || event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+            return;
+        }
+        if (!CorpseLabConfig.CLIENT_SPEC.isLoaded() || !CorpseLabConfig.CLIENT.collisionBoxDisplay.get()) {
+            reported = false;
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();

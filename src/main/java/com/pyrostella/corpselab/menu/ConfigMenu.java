@@ -2,6 +2,7 @@ package com.pyrostella.corpselab.menu;
 
 import com.pyrostella.corpselab.config.ConfigRegistry;
 import com.pyrostella.corpselab.net.ClientSettings;
+import com.pyrostella.corpselab.register.CorpseLabItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +20,7 @@ import net.minecraft.world.item.Items;
 import net.minecraftforge.network.NetworkHooks;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +34,7 @@ import java.util.Map;
  * 都不会被信任到超出 {@link #mayEdit} 的范围
  *
  * <p>各行都从 {@link ConfigRegistry} 读取，所以模组里新加的设置
- * 会自动出现在这里，注释即提示框，范围也会被强制执行
+ * 会自动出现在这里，提示框使用翻译组件，范围也会被强制执行
  */
 public final class ConfigMenu extends ChestMenu {
 
@@ -44,13 +46,24 @@ public final class ConfigMenu extends ChestMenu {
     private static final int SLOT_PREVIOUS = 48;
     private static final int SLOT_INFO = 49;
     private static final int SLOT_NEXT = 50;
-    private static final int SLOT_CLOSE = 53;
+    /** 右下角红叉：丢弃全部暂存改动，一个字节都不写 */
+    private static final int SLOT_CANCEL = 52;
+    /** 右下角绿勾：把暂存改动写进配置文件并关界面 */
+    private static final int SLOT_CONFIRM = 53;
 
     /** 原版 /gamerule 要求的等级，也是这里改动任何东西所需的等级 */
     public static final int PERMISSION_LEVEL = 2;
 
     private final SimpleContainer display;
     private final ServerPlayer viewer;
+
+    /**
+     * 点了但还没确认的改动：设置 → 传输形式的当前值
+     *
+     * <p>确认之前配置文件和客户端设置都不会被动过，所以红叉关界面
+     * 天然就回到打开界面时的状态，不需要另存一份快照
+     */
+    private final Map<ConfigRegistry.Entry, String> pending = new LinkedHashMap<>();
 
     /** 索引页上为 null，否则是当前显示的分区 */
     private String section;
@@ -68,7 +81,7 @@ public final class ConfigMenu extends ChestMenu {
             ConfigMenu menu = new ConfigMenu(id, inventory, container, player);
             menu.rebuild();
             return menu;
-        }, Component.literal("CorpseLab Settings")));
+        }, Component.translatable("corpselab.menu.title")));
 
         // 客户端自己的设置存在客户端上，只能去问它。菜单先立刻打开
         // 等答复到了再把那几行填上
@@ -127,37 +140,37 @@ public final class ConfigMenu extends ChestMenu {
             String value = rawValue(entry);
             display.setItem(i - from,
                     ConfigItems.setting(entry, value == null ? "" : value,
-                            mayEdit(entry), value == null));
+                            mayEdit(entry), value == null, pending.containsKey(entry)));
         }
     }
 
     private void buildNavigation() {
         if (section != null) {
-            display.setItem(SLOT_BACK, ConfigItems.nav(Items.ARROW, "Back",
-                    ChatFormatting.WHITE, "To the section list"));
-
+            display.setItem(SLOT_BACK, ConfigItems.nav(CorpseLabItem.RED_ARROW_LEFT.get(),
+                    Component.translatable("corpselab.menu.back"), ChatFormatting.WHITE));
             display.setItem(SLOT_INFO, ConfigItems.nav(Items.BOOK,
-                    ConfigRegistry.humanise(section), ChatFormatting.YELLOW,
-                    "Page " + (page + 1) + " of " + pageCount()));
-
+                    ConfigItems.sectionName(section), ChatFormatting.YELLOW,
+                    Component.translatable("corpselab.menu.page", page + 1, pageCount())));
             if (page > 0) {
                 display.setItem(SLOT_PREVIOUS, ConfigItems.nav(Items.SPECTRAL_ARROW,
-                        "Previous page", ChatFormatting.WHITE));
+                        Component.translatable("corpselab.menu.previous"), ChatFormatting.WHITE));
             }
             if (page < pageCount() - 1) {
                 display.setItem(SLOT_NEXT, ConfigItems.nav(Items.SPECTRAL_ARROW,
-                        "Next page", ChatFormatting.WHITE));
+                        Component.translatable("corpselab.menu.next"), ChatFormatting.WHITE));
             }
         } else {
-            display.setItem(SLOT_INFO, ConfigItems.nav(Items.BOOK, "CorpseLab",
-                    ChatFormatting.YELLOW,
-                    viewer.hasPermissions(PERMISSION_LEVEL)
-                            ? "Changes here apply to the whole world"
-                            : "You may change your own display settings only"));
+            display.setItem(SLOT_INFO, ConfigItems.nav(Items.BOOK,
+                    Component.translatable("corpselab.menu.title"), ChatFormatting.YELLOW,
+                    Component.translatable(viewer.hasPermissions(PERMISSION_LEVEL)
+                            ? "corpselab.menu.access.admin" : "corpselab.menu.access.player")));
         }
 
-        display.setItem(SLOT_CLOSE, ConfigItems.nav(Items.BARRIER, "Close",
-                ChatFormatting.RED));
+        // 右下角固定是「丢弃 / 保存」，任何一页都能提交，也都能放弃
+        display.setItem(SLOT_CANCEL, ConfigItems.nav(CorpseLabItem.RED_CROSS.get(),
+                Component.translatable("corpselab.menu.cancel"), ChatFormatting.RED));
+        display.setItem(SLOT_CONFIRM, ConfigItems.nav(CorpseLabItem.GREEN_CHECK.get(),
+                Component.translatable("corpselab.menu.confirm"), ChatFormatting.GREEN));
     }
 
     // ---- 取值 ------------------------------------------------------------------------
@@ -169,24 +182,52 @@ public final class ConfigMenu extends ChestMenu {
         return viewer.hasPermissions(PERMISSION_LEVEL);
     }
 
-    /** 当前值；对这名玩家尚未上报的客户端设置则为 null */
+    /** 当前值；点了没确认时是暂存值，对这名玩家尚未上报的客户端设置则为 null */
     private String rawValue(ConfigRegistry.Entry entry) {
+        String staged = pending.get(entry);
+        if (staged != null) {
+            return staged;
+        }
         if (entry.serverSide()) {
             return ConfigRegistry.encode(ConfigRegistry.get(entry));
         }
         return ClientSettings.get(viewer, entry.path());
     }
 
-    private void write(ConfigRegistry.Entry entry, Object value) {
-        if (entry.serverSide()) {
-            String error = ConfigRegistry.set(entry, value);
-            if (error != null) {
-                viewer.sendSystemMessage(ConfigItems.line(
-                        "CorpseLab: " + entry.path() + " " + error, ChatFormatting.RED));
+    /** 暂存一项改动；真正落盘要等玩家点右下角的绿勾 */
+    private void stage(ConfigRegistry.Entry entry, Object value) {
+        pending.put(entry, ConfigRegistry.encode(value));
+    }
+
+    /** 绿勾：把暂存的改动逐项写下去，然后关界面 */
+    private void commit() {
+        for (Map.Entry<ConfigRegistry.Entry, String> staged : pending.entrySet()) {
+            ConfigRegistry.Entry entry = staged.getKey();
+            String raw = staged.getValue();
+
+            if (entry.serverSide()) {
+                Object value = ConfigRegistry.decode(entry, raw);
+                if (value == null) {
+                    continue;
+                }
+                String error = ConfigRegistry.set(entry, value);
+                if (error != null) {
+                    viewer.sendSystemMessage(ConfigItems.line("corpselab.menu.save_failed",
+                            ChatFormatting.RED, ConfigItems.settingName(entry)));
+                    com.pyrostella.corpselab.CorpseLab.LOGGER.warn("Could not save {}: {}", entry.path(), error);
+                }
+            } else {
+                ClientSettings.set(viewer, entry.path(), raw);
             }
-        } else {
-            ClientSettings.set(viewer, entry.path(), ConfigRegistry.encode(value));
         }
+        pending.clear();
+        viewer.closeContainer();
+    }
+
+    /** 红叉：丢弃全部暂存改动，配置还是打开界面时的样子 */
+    private void discard() {
+        pending.clear();
+        viewer.closeContainer();
     }
 
     /**
@@ -217,11 +258,11 @@ public final class ConfigMenu extends ChestMenu {
         double clamped = Math.max(entry.min(), Math.min(entry.max(), moved));
 
         if (entry.kind() == ConfigRegistry.Kind.INTEGER) {
-            write(entry, (int) Math.round(clamped));
+            stage(entry, (int) Math.round(clamped));
         } else {
             // 步长都是整齐的数，浮点加法却不是，所以把值重新吸附到三位小数
             // 免得它漂成 0.7500000000000001
-            write(entry, Math.round(clamped * 1000.0D) / 1000.0D);
+            stage(entry, Math.round(clamped * 1000.0D) / 1000.0D);
         }
     }
 
@@ -268,16 +309,16 @@ public final class ConfigMenu extends ChestMenu {
         boolean coarse = clickType == ClickType.QUICK_MOVE;
 
         if (reset) {
-            write(entry, entry.defaultValue());
+            stage(entry, entry.defaultValue());
         } else if (entry.kind() == ConfigRegistry.Kind.BOOLEAN) {
-            write(entry, !Boolean.parseBoolean(rawValue(entry)));
+            stage(entry, !Boolean.parseBoolean(rawValue(entry)));
         } else if (entry.kind() == ConfigRegistry.Kind.ENUM) {
             // 枚举只有几个名字，点一下换下一个，不用另做界面
-            write(entry, ConfigRegistry.next(entry, rawValue(entry)));
+            stage(entry, ConfigRegistry.next(entry, rawValue(entry)));
         } else if (entry.min() != null) {
             adjust(entry, button == 1 ? -1 : 1, coarse);
         } else {
-            // 列表和自由文本没法这样微调，那些用命令来改
+            // 列表和自由文本由配置文件编辑
             deny();
             return;
         }
@@ -288,8 +329,19 @@ public final class ConfigMenu extends ChestMenu {
 
     private boolean handleNavigation(int slotId) {
         switch (slotId) {
-            case SLOT_CLOSE -> {
-                viewer.closeContainer();
+            case SLOT_CONFIRM -> {
+                // 有暂存改动才需要提示音，纯关界面不响
+                if (!pending.isEmpty()) {
+                    click();
+                }
+                commit();
+                return true;
+            }
+            case SLOT_CANCEL -> {
+                if (!pending.isEmpty()) {
+                    click();
+                }
+                discard();
                 return true;
             }
             case SLOT_BACK -> {

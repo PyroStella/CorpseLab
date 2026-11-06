@@ -12,14 +12,12 @@ import java.util.Map;
 /**
  * 模组的所有设置，通过遍历配置 spec 自身发现
  *
- * <p>命令和设置界面都从这里读取，所以两边都不带手写的选项列表
- * 往 {@link CorpseLabConfig} 里新加一项设置，它不用再写一行代码
- * 就会出现在命令补全和界面上
- * 也不存在第二份需要记得去更新的列表
+ * <p>设置菜单从这里读取配置项，新设置会自动加入菜单
+ * 对应名称与简短说明在语言文件中维护
  */
 public final class ConfigRegistry {
 
-    /** 一项设置需要什么样的控件，以及命令该怎么解析它 */
+    /** 一项设置需要什么样的控件，以及如何解析传输值 */
     public enum Kind {
         BOOLEAN,
         INTEGER,
@@ -30,7 +28,7 @@ public final class ConfigRegistry {
         ENUM
     }
 
-    /** 一个叶子设置：它在哪、装着什么、允许装什么 */
+    /** 一项配置的元数据，菜单根据类型选择控件 */
     public record Entry(String path,
                         String section,
                         String name,
@@ -40,36 +38,6 @@ public final class ConfigRegistry {
                         Double min,
                         Double max,
                         boolean serverSide) {
-
-        /** 界面用的短标签：叶子名，按驼峰拆成空格分隔 */
-        public String label() {
-            return humanise(name);
-        }
-
-        /**
-         * 分区与名字之间的那段路径，没有则为空串
-         *
-         * <p>好几项设置都叫 "enabled"，只有子路径能区分它们
-         * 所以界面按它分组，而不是摆出八行一模一样的条目
-         */
-        public String group() {
-            int first = path.indexOf('.');
-            int last = path.lastIndexOf('.');
-            return first == last ? "" : path.substring(first + 1, last);
-        }
-    }
-
-    /** 把配置键变成可读标签："impactDamage" 变成 "Impact Damage" */
-    public static String humanise(String key) {
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < key.length(); i++) {
-            char c = key.charAt(i);
-            if (i > 0 && Character.isUpperCase(c) && !Character.isUpperCase(key.charAt(i - 1))) {
-                out.append(' ');
-            }
-            out.append(i == 0 ? Character.toUpperCase(c) : c);
-        }
-        return out.toString();
     }
 
     private static List<Entry> entries;
@@ -220,10 +188,6 @@ public final class ConfigRegistry {
         } catch (RuntimeException failure) {
             return failure.getMessage() == null ? "rejected" : failure.getMessage();
         }
-    }
-
-    public static String reset(Entry entry) {
-        return set(entry, entry.defaultValue());
     }
 
     /** 值的传输形式：和展示形式不同，它是精确的，所以能原样往返 */

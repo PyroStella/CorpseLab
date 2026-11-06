@@ -128,6 +128,7 @@ public final class CorpseLabConfig {
     public static final class Client {
 
         public final ForgeConfigSpec.BooleanValue hideVanillaDeathAnimation;
+        public final ForgeConfigSpec.BooleanValue collisionBoxDisplay;
 
         private Client(ForgeConfigSpec.Builder b) {
             b.comment("表现层，仅客户端").push("display");
@@ -135,6 +136,10 @@ public final class CorpseLabConfig {
             hideVanillaDeathAnimation = b
                     .comment("留下身体后隐藏 Minecraft 自带的死亡动画")
                     .define("hideVanillaDeathAnimation", true);
+
+            collisionBoxDisplay = b
+                    .comment("显示尸体肢体碰撞箱，仅影响本机")
+                    .define("collisionBoxDisplay", false);
 
             b.pop();
         }
