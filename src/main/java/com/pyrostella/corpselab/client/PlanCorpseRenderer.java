@@ -50,7 +50,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         EntityType<?> sourceType = ForgeRegistries.ENTITY_TYPES.getValue(entity.sourceType());
         PlanModelCache.Binding binding = sourceType == null ? null : PlanModelCache.get(sourceType);
         if (binding == null || binding.parts().size() != plan.boxCount()) {
-            // 拿不到模型，或者模型结构与骨架对不上（例如换了资源包）：这一帧不画
+            // 拿不到模型，或者模型结构与骨架对不上时跳过
             return;
         }
 

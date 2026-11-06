@@ -1,17 +1,14 @@
 package com.pyrostella.corpselab.plan;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import net.minecraft.client.model.AgeableListModel;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.*;
 
 /**
  * 把一个原版模型拆成 {@link BodyPlan}
@@ -33,6 +30,12 @@ public final class ModelPartScanner {
 
     /** 质量密度：每立方方块的质量 */
     private static final double DENSITY = 1.0D;
+
+    /** 不公开父类方法，避免访问转换破坏全部原版子类的源码继承关系 */
+    private static final Method HEAD_PARTS = ObfuscationReflectionHelper.findMethod(
+            AgeableListModel.class, "m_5607_");
+    private static final Method BODY_PARTS = ObfuscationReflectionHelper.findMethod(
+            AgeableListModel.class, "m_5608_");
 
     private ModelPartScanner() {
     }
@@ -101,18 +104,39 @@ public final class ModelPartScanner {
             roots.put("", new RootRef("", hierarchical.root(), PartGroup.NORMAL));
         } else if (model instanceof AgeableListModel<?> ageable) {
             int headIndex = 0;
-            for (ModelPart head : ageable.headParts()) {
+            for (ModelPart head : parts(HEAD_PARTS, ageable)) {
                 String name = ModelTopology.headName(topology, headIndex++);
                 roots.putIfAbsent(name, new RootRef(name, head, PartGroup.HEAD));
             }
             int bodyIndex = 0;
-            for (ModelPart body : ageable.bodyParts()) {
+            for (ModelPart body : parts(BODY_PARTS, ageable)) {
                 String name = ModelTopology.bodyName(topology, bodyIndex++);
                 roots.putIfAbsent(name, new RootRef(name, body, PartGroup.BODY));
             }
         }
 
         return List.copyOf(roots.values());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Iterable<ModelPart> parts(Method method, AgeableListModel<?> model) {
+        try {
+            return (Iterable<ModelPart>) method.invoke(model);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("无法读取模型部件", e);
+        } catch (InvocationTargetException e) {
+            throw propagate("模型部件方法执行失败", e.getCause());
+        }
+    }
+
+    private static RuntimeException propagate(String message, Throwable cause) {
+        if (cause instanceof RuntimeException runtime) {
+            return runtime;
+        }
+        if (cause instanceof Error error) {
+            throw error;
+        }
+        return new IllegalStateException(message, cause);
     }
 
     private static void walk(ModelPart part, String path, PartGroup group, int parentBoxIndex,

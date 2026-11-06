@@ -145,15 +145,11 @@ public final class PlanRagdoll {
             PlanPose.Frame childFrame = pose == null ? restFrame(child) : pose[joint.child()];
             PlanPose.Frame parentFrame = pose == null ? restFrame(parent) : pose[joint.parent()];
 
-            // 关节长在子部件的枢轴上（肩、髋、脖子），而不是两个盒子中心的中点
-            // 这样姿势是绕关节转的，关节也不会把姿势抹掉
+            // 关节长在子部件的枢轴上
             Vector3d pivot = childFrame.origin();
             Vector3d anchorChild = localAnchor(childFrame, centres[joint.child()], pivot);
             Vector3d anchorParent = localAnchor(parentFrame, centres[joint.parent()], pivot);
 
-            // 关节帧的局部 X 轴必须指向骨头。传单位四元数等于把刚体自己的 X 轴（横向！）
-            // 当成骨轴：swing 锥角因为两轴永远平行而整条失效，twist 限制则落到"相对俯仰"上
-            // 于是腿绕自身长轴内旋、向外张开这些自由度完全没人管
             Vector3d bone = boneDirection(joint.child(), parentOf, centres, boneDirs, visiting);
             Quaterniond boneFrame = new Quaterniond()
                     .rotationTo(X_AXIS, orientation.transform(toBodyDirection(bone)));
@@ -164,7 +160,7 @@ public final class PlanRagdoll {
                     this.bodies[joint.child()], anchorChild, frameChild,
                     this.bodies[joint.parent()], anchorParent, frameParent);
             constraint.limits(75.0D, -45.0D, 45.0D);
-            // 软关节：允许被拉开一点点，拉过头就断，那截肢体真的掉下来
+            // 软关节：允许被拉开一点点，拉过头就断
             constraint.compliance = PlanConfig.jointCompliance();
             constraint.breakDistance = PlanConfig.jointBreakDistance();
 
@@ -185,7 +181,7 @@ public final class PlanRagdoll {
             return cached;
         }
         if (visiting[box]) {
-            // 骨架成环（不该发生）：给一个安全的默认值，别在这里无限递归
+            // 骨架成环：给一个安全的默认值，防止无限递归
             return new Vector3d(0.0D, 1.0D, 0.0D);
         }
         visiting[box] = true;

@@ -1,8 +1,5 @@
 package com.pyrostella.corpselab.client;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.ModelPartScanner.PartGroup;
@@ -13,8 +10,14 @@ import net.minecraft.client.model.AgeableListModel;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 /** 把当前实体渲染时的缩放固化进单实例 BodyPlan */
 public final class ModelRenderPlan {
@@ -22,15 +25,19 @@ public final class ModelRenderPlan {
     /** LivingEntityRenderer 在模型缩放后使用的脚底抬升 */
     private static final float LIFT = 1.501F;
 
+    /** 反射调用仍会虚分派到史莱姆等具体渲染器，同时不改变父类方法的访问级别 */
+    private static final Method RENDERER_SCALE = ObfuscationReflectionHelper.findMethod(
+            LivingEntityRenderer.class, "m_7546_",
+            LivingEntity.class, PoseStack.class, float.class);
+
     private ModelRenderPlan() {
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public static BodyPlan capture(ScanResult scan, EntityModel<?> model,
                                    LivingEntityRenderer<?, ?> renderer,
                                    LivingEntity entity, float partialTick) {
         PoseStack rendererTransform = new PoseStack();
-        ((LivingEntityRenderer) renderer).scale(entity, rendererTransform, partialTick);
+        applyRendererScale(renderer, entity, rendererTransform, partialTick);
         Matrix4f matrix = rendererTransform.last().pose();
 
         Vector3f xAxis = matrix.transformDirection(new Vector3f(1.0F, 0.0F, 0.0F));
@@ -62,6 +69,25 @@ public final class ModelRenderPlan {
                     pivot.x, pivot.y, pivot.z));
         }
         return new BodyPlan(List.copyOf(boxes), scan.plan().joints());
+    }
+
+    private static void applyRendererScale(LivingEntityRenderer<?, ?> renderer,
+                                           LivingEntity entity, PoseStack poseStack,
+                                           float partialTick) {
+        try {
+            RENDERER_SCALE.invoke(renderer, entity, poseStack, partialTick);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("无法读取实体渲染缩放", e);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("实体渲染缩放执行失败", cause);
+        }
     }
 
     private static Vector3f transform(Matrix4f renderer, BabyTransform baby,

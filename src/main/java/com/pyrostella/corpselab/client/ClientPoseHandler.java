@@ -10,8 +10,7 @@ import org.joml.Vector3f;
 /** 把收到的姿态快照应用到它所属的布娃娃上 */
 public final class ClientPoseHandler {
 
-    private ClientPoseHandler() {
-    }
+    private ClientPoseHandler() {}
 
     public static void accept(int entityId, double anchorX, double anchorY, double anchorZ,
                               Vector3f[] positions, Quaternionf[] rotations) {
