@@ -54,7 +54,7 @@ public final class PlanCorpseHandler {
                 && event.getEntity() instanceof ServerPlayer player) {
             CorpseLabNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
-                    new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan()));
+                    new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan(), corpse.appearance()));
         }
     }
 }

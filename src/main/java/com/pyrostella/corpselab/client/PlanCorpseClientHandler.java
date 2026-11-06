@@ -5,6 +5,7 @@ import org.joml.Quaternionf;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import net.minecraft.client.Minecraft;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 
@@ -14,10 +15,11 @@ public final class PlanCorpseClientHandler {
     private PlanCorpseClientHandler() {
     }
 
-    public static void acceptPlan(int entityId, ResourceLocation sourceType, BodyPlan plan) {
+    public static void acceptPlan(int entityId, ResourceLocation sourceType, BodyPlan plan, CompoundTag appearance) {
         PlanCorpseEntity corpse = find(entityId);
         if (corpse != null) {
             corpse.setSourceType(sourceType);
+            corpse.setAppearance(appearance);
             corpse.setPlan(plan);
         }
     }

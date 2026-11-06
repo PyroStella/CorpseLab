@@ -36,6 +36,11 @@ public interface CorpseModelAdapter {
     interface Binding {
         /** 每具尸体绘制前调用一次，适配器可自行选择贴图、渲染类型及缓冲 */
         PartRenderer prepare(PlanCorpseEntity corpse, MultiBufferSource buffers, float partialTick);
+
+        /** 附加层可一次绘制全部肢体，默认无附加层 */
+        default void renderLayers(PlanCorpseEntity corpse, PoseStack stack, MultiBufferSource buffers,
+                                  int packedLight, float partialTick) {
+        }
     }
 
     @FunctionalInterface

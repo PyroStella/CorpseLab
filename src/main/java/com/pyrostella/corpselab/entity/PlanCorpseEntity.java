@@ -16,6 +16,7 @@ import com.pyrostella.corpselab.net.CorpseLabNetwork;
 import com.pyrostella.corpselab.net.PlanPosePacket;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.BodyPlanCodec;
+import com.pyrostella.corpselab.plan.CorpseAppearance;
 import com.pyrostella.corpselab.plan.PlanConfig;
 import com.pyrostella.corpselab.plan.PlanPose;
 import com.pyrostella.corpselab.plan.PlanRagdoll;
@@ -64,6 +65,8 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     /** 死亡生物的类型，客户端据此找模型与贴图 */
     private ResourceLocation sourceType = new ResourceLocation("minecraft", "pig");
+    private CompoundTag appearance = new CompoundTag();
+    private int appearanceVersion;
 
     /** 已存在的 tick 数，用于过期清理 */
     private int age;
@@ -98,6 +101,9 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
         corpse.plan = plan;
         corpse.sourceType = sourceType;
+        if (source != null) {
+            corpse.setAppearance(CorpseAppearance.capture(source));
+        }
         corpse.setCorpseSize(source == null ? sourceWidth(sourceType) : source.getBbWidth());
         corpse.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
 
@@ -221,6 +227,19 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     public ResourceLocation sourceType() {
         return this.sourceType;
+    }
+
+    public CompoundTag appearance() {
+        return this.appearance.copy();
+    }
+
+    public int appearanceVersion() {
+        return this.appearanceVersion;
+    }
+
+    public void setAppearance(CompoundTag appearance) {
+        this.appearance = appearance.copy();
+        this.appearanceVersion++;
     }
 
     @Override
@@ -384,6 +403,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        this.setAppearance(tag.getCompound("Appearance"));
         this.age = tag.getInt("Age");
         if (tag.contains("SourceType")) {
             this.sourceType = new ResourceLocation(tag.getString("SourceType"));
@@ -409,6 +429,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.put("Appearance", this.appearance.copy());
         tag.putInt("Age", this.age);
         tag.putString("SourceType", this.sourceType.toString());
         tag.putFloat("CorpseSize", this.entityData.get(CORPSE_SIZE));

@@ -37,7 +37,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         }
 
         EntityType<?> sourceType = ForgeRegistries.ENTITY_TYPES.getValue(entity.sourceType());
-        CorpseModelAdapter.Binding binding = sourceType == null ? null : PlanModelCache.get(sourceType);
+        CorpseModelAdapter.Binding binding = sourceType == null ? null : PlanModelCache.get(entity, sourceType);
         if (binding == null) {
             return;
         }
@@ -65,6 +65,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
                 poseStack.popPose();
             }
         }
+        binding.renderLayers(entity, poseStack, bufferSource, packedLight, partialTick);
     }
 
     @Override

@@ -5,6 +5,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pyrostella.corpselab.client.ModelRenderPlan;
 import com.pyrostella.corpselab.plan.BodyPlan;
 import com.pyrostella.corpselab.plan.ModelPartScanner;
+import com.pyrostella.corpselab.entity.PlanCorpseEntity;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.RenderType;
@@ -66,7 +68,9 @@ final class VanillaModelAdapter implements CorpseModelAdapter {
         for (BodyPlan.Box box : scan.plan().boxes()) {
             byPath.put(box.path(), box);
         }
-        return (corpse, buffers, partialTick) -> {
+        return new Binding() {
+          @Override
+          public PartRenderer prepare(PlanCorpseEntity corpse, MultiBufferSource buffers, float partialTick) {
             ResourceLocation texture = texture(livingRenderer, probe);
             VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
             return (box, stack, packedLight) -> {
@@ -81,6 +85,13 @@ final class VanillaModelAdapter implements CorpseModelAdapter {
                 stack.translate(-ref.cx(), -ref.cy(), -ref.cz());
                 renderPartAlone(stack, consumer, ref.part(), packedLight);
             };
+          }
+
+          @Override
+          public void renderLayers(PlanCorpseEntity corpse, PoseStack stack, MultiBufferSource buffers,
+                                   int light, float partialTick) {
+              CorpseLayers.render(livingRenderer, probe, corpse, stack, buffers, light, partialTick);
+          }
         };
     }
 

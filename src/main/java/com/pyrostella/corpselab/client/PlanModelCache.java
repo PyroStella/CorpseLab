@@ -2,6 +2,9 @@ package com.pyrostella.corpselab.client;
 
 import com.pyrostella.corpselab.client.model.CorpseModelAdapter;
 import com.pyrostella.corpselab.client.model.CorpseModelAdapters;
+import com.pyrostella.corpselab.entity.PlanCorpseEntity;
+import com.pyrostella.corpselab.plan.CorpseAppearance;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.world.entity.Entity;
@@ -24,6 +27,28 @@ public final class PlanModelCache {
     private static final Map<EntityType<?>, CorpseModelAdapter.Binding> CACHE = new HashMap<>();
     private static final Map<EntityType<?>, Long> RETRY_AT = new HashMap<>();
     private static Object adaptersVersion;
+    private record CorpseBinding(int version, CorpseModelAdapter.Binding binding, long retryAt) {
+    }
+    private static final Map<PlanCorpseEntity, CorpseBinding> CORPSES = new WeakHashMap<>();
+
+    /** 不同尸体使用独立探针，避免职业、颜色和装备在同类尸体之间串用 */
+    @Nullable
+    public static CorpseModelAdapter.Binding get(PlanCorpseEntity corpse, EntityType<?> type) {
+        if (adaptersVersion != CorpseModelAdapters.version()) {
+            clear();
+            adaptersVersion = CorpseModelAdapters.version();
+        }
+        CorpseBinding cached = CORPSES.get(corpse);
+        if (cached != null && cached.version() == corpse.appearanceVersion()) {
+            if (cached.binding() != null || corpse.level().getGameTime() < cached.retryAt()) {
+                return cached.binding();
+            }
+        }
+        CorpseModelAdapter.Binding binding = build(type, corpse.appearance());
+        CORPSES.put(corpse, new CorpseBinding(corpse.appearanceVersion(), binding,
+                corpse.level().getGameTime() + 20));
+        return binding;
+    }
 
     private PlanModelCache() {
     }
@@ -57,6 +82,11 @@ public final class PlanModelCache {
 
     @Nullable
     private static CorpseModelAdapter.Binding build(EntityType<?> type) {
+        return build(type, new CompoundTag());
+    }
+
+    @Nullable
+    private static CorpseModelAdapter.Binding build(EntityType<?> type, CompoundTag appearance) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {
             return null;
@@ -66,7 +96,7 @@ public final class PlanModelCache {
         if (!(created instanceof LivingEntity probe)) {
             return null;
         }
-        probe.setPos(0.0D, -1000.0D, 0.0D);
+        CorpseAppearance.apply(probe, appearance);
 
         EntityRenderer<?> renderer = minecraft.getEntityRenderDispatcher().getRenderer(probe);
         CorpseModelAdapter adapter = CorpseModelAdapters.select(probe, renderer);
@@ -76,5 +106,6 @@ public final class PlanModelCache {
     public static void clear() {
         CACHE.clear();
         RETRY_AT.clear();
+        CORPSES.clear();
     }
 }

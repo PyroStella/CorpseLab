@@ -38,6 +38,10 @@ minecraft {
         }
 
         client {
+            args '--mixin.config', 'corpselab.mixins.json'
+            if (project.hasProperty('corpseRenderTest')) {
+                property 'corpselab.renderTest', 'true'
+            }
             property 'forge.enabledGameTestNamespaces', mod_id
             // GeckoLib 带 mixin，开发环境要打开 refmap 重映射，否则 APPLY 阶段直接崩
             property 'mixin.env.remapRefMap', 'true'
@@ -136,7 +140,8 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Title'    : project.name,
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
-                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                'MixinConfigs': 'corpselab.mixins.json'
         ])
     }
 
