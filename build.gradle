@@ -49,6 +49,9 @@ minecraft {
             args '--mixin.config', 'corpselab.mixins.json', '--mixin.config', 'corpselab.gecko.mixins.json'
             if (project.hasProperty('corpseRenderTest')) {
                 property 'corpselab.renderTest', 'true'
+                if (project.hasProperty('geckoPhysicsTest')) {
+                    property 'corpselab.geckoPhysicsTest', 'true'
+                }
                 if (project.hasProperty('renderTestWorld')) {
                     args '--quickPlaySingleplayer', project.property('renderTestWorld')
                 }

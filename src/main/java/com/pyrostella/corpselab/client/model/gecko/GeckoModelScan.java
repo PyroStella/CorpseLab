@@ -25,9 +25,55 @@ public final class GeckoModelScan {
         for (GeoBone root : model.topLevelBones()) {
             walk(root, root.getName(), -1, rendererTransform, boxes, joints, parts);
         }
-        return new Result(new BodyPlan(List.copyOf(boxes), List.copyOf(joints)), List.copyOf(parts));
+        return physicalBones(boxes, joints, parts);
     }
 
+    /** 空控制骨骼只传递变换，不生成具有极小转动惯量的碰撞刚体 */
+    private static Result physicalBones(List<BodyPlan.Box> boxes, List<BodyPlan.Joint> joints, List<Part> parts) {
+        int[] parent = new int[boxes.size()];
+        int[] remap = new int[boxes.size()];
+        java.util.Arrays.fill(parent, -1);
+        java.util.Arrays.fill(remap, -1);
+        for (var joint : joints) parent[joint.child()] = joint.parent();
+        List<BodyPlan.Box> physical = new ArrayList<>();
+        List<Part> geometry = new ArrayList<>();
+        for (int i = 0; i < boxes.size(); i++) {
+            var bone = parts.get(i).bone();
+            boolean hasGeometry = !Boolean.TRUE.equals(bone.shouldNeverRender()) && bone.getCubes().stream()
+                    .anyMatch(cube -> cube.quads() != null && java.util.Arrays.stream(cube.quads())
+                            .anyMatch(quad -> quad != null && quad.vertices().length > 0));
+            if (!hasGeometry) continue;
+            var box = boxes.get(i);
+            int index = physical.size();
+            remap[i] = index;
+            physical.add(new BodyPlan.Box(index, box.path(), box.cx(), box.cy(), box.cz(),
+                    box.hx(), box.hy(), box.hz(), box.mass(), box.px(), box.py(), box.pz()));
+            geometry.add(parts.get(i));
+        }
+        List<BodyPlan.Joint> links = new ArrayList<>();
+        var representatives = new java.util.HashMap<Integer, Integer>();
+        for (int i = 0; i < boxes.size(); i++) {
+            if (remap[i] < 0) continue;
+            int root = i;
+            while (parent[root] >= 0) root = parent[root];
+            representatives.putIfAbsent(root, remap[i]);
+        }
+        for (int i = 0; i < boxes.size(); i++) {
+            if (remap[i] < 0) continue;
+            int ancestor = parent[i];
+            while (ancestor >= 0 && remap[ancestor] < 0) ancestor = parent[ancestor];
+            int target;
+            if (ancestor >= 0) target = remap[ancestor];
+            else {
+                int root = i;
+                while (parent[root] >= 0) root = parent[root];
+                // 同一个空根下的几何分支归属同一装配体，独立的 JSON 根仍彼此独立
+                target = representatives.get(root);
+            }
+            if (target != remap[i]) links.add(new BodyPlan.Joint(remap[i], target));
+        }
+        return new Result(new BodyPlan(List.copyOf(physical), List.copyOf(links)), List.copyOf(geometry));
+    }
     private static void walk(GeoBone bone, String path, int parent, Matrix4f parentMatrix,
                              List<BodyPlan.Box> boxes, List<BodyPlan.Joint> joints, List<Part> parts) {
         // 只读取初始快照，避免共享模型上最后一个活体的动画污染尸体和其它实例
@@ -57,7 +103,7 @@ public final class GeckoModelScan {
                 }
             }
         }
-        // 空父骨骼仍保留一个微小的关节载体，避免同属一个父骨骼的四肢断开
+        // 临时记录空骨骼的枢轴，物理过滤阶段会移除它，子骨骼仍继承完整变换
         if (!Float.isFinite(min.x)) {
             min.set(worldPivot).sub(0.005f, 0.005f, 0.005f);
             max.set(worldPivot).add(0.005f, 0.005f, 0.005f);

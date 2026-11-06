@@ -12,7 +12,6 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -108,34 +107,8 @@ final class VanillaModelAdapter implements CorpseModelAdapter {
         return model > 1.0E-6D ? (float) (actual / model) : 1.0F;
     }
 
-    /** 临时隔离部件，恢复共享模型的全部原有状态 */
+    /** 只编译本部件的方块，既不递归子节点，也不修改共享模型 */
     private static void renderPartAlone(PoseStack stack, VertexConsumer consumer, ModelPart part, int light) {
-        float x = part.x;
-        float y = part.y;
-        float z = part.z;
-        float xRot = part.xRot;
-        float yRot = part.yRot;
-        float zRot = part.zRot;
-        boolean skip = part.skipDraw;
-        boolean visible = part.visible;
-        Map<String, ModelPart> children = new HashMap<>(part.children);
-        try {
-            part.x = part.y = part.z = 0.0F;
-            part.xRot = part.yRot = part.zRot = 0.0F;
-            part.skipDraw = false;
-            part.visible = true;
-            part.children.clear();
-            part.render(stack, consumer, light, OverlayTexture.NO_OVERLAY);
-        } finally {
-            part.x = x;
-            part.y = y;
-            part.z = z;
-            part.xRot = xRot;
-            part.yRot = yRot;
-            part.zRot = zRot;
-            part.skipDraw = skip;
-            part.visible = visible;
-            part.children.putAll(children);
-        }
+        ModelPartGeometry.renderCubes(stack, consumer, part, light);
     }
 }

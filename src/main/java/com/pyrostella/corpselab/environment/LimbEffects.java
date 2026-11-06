@@ -1,5 +1,6 @@
 package com.pyrostella.corpselab.environment;
 
+import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.entity.CorpseLimbEntity;
 import com.pyrostella.corpselab.physics.RigidBody;
 import com.pyrostella.corpselab.util.ExtensionRegistry;
@@ -15,12 +16,11 @@ import java.util.function.Supplier;
 
 /** 环境扩展入口：低优先级先执行，高优先级可覆盖环境参数或补充施力 */
 public final class LimbEffects {
-    private static final ExtensionRegistry<Supplier<? extends LimbEnvironmentEffect>> REGISTRY =
-            new ExtensionRegistry<>();
+    private static final ExtensionRegistry<Supplier<? extends LimbEnvironmentEffect>> REGISTRY = new ExtensionRegistry<>();
 
     static {
-        register(new ResourceLocation("corpselab", "vanilla_fluids"), 0, VanillaFluidEffect::new);
-        register(new ResourceLocation("corpselab", "damage_knockback"), 0, DamageKnockbackEffect::new);
+        register(new ResourceLocation(CorpseLab.MOD_ID, "vanilla_fluids"), 0, VanillaFluidEffect::new);
+        register(new ResourceLocation(CorpseLab.MOD_ID, "damage_knockback"), 0, DamageKnockbackEffect::new);
     }
 
     private LimbEffects() {

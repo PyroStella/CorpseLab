@@ -161,7 +161,9 @@ public final class PlanRagdoll {
                     this.bodies[joint.parent()], anchorParent, frameParent);
             constraint.limits(75.0D, -45.0D, 45.0D);
             // 软关节：允许被拉开一点点，拉过头就断
-            constraint.compliance = PlanConfig.jointCompliance();
+            // 参数按原版大小的部件校准；大型几何不能因自重不同而把同样的关节拉断
+            double loadScale = Math.max(1.0D, (child.mass() + parent.mass()) / 0.5D);
+            constraint.compliance = PlanConfig.jointCompliance() / loadScale;
             constraint.breakDistance = PlanConfig.jointBreakDistance();
 
             this.world.constraints.add(constraint);
@@ -301,12 +303,14 @@ public final class PlanRagdoll {
      */
     private boolean nestedAtSpawn(int first, int second, List<Vector3d> firstSpheres, double firstRadius,
                                   List<Vector3d> secondSpheres, double secondRadius) {
+        // 铰接模型允许本来就交叠的装饰、翅膜和相邻骨段，不能强行把它们顶开
+        if (this.articulated && boxesOverlap(this.bodies[first], this.bodies[second])) return true;
         if (containsCentre(this.bodies[first], this.bodies[second].pos)
                 || containsCentre(this.bodies[second], this.bodies[first].pos)) {
             return true;
         }
 
-        // 兜底：球心几乎重合（插进去一半以上）的也算天生叠着
+        // 保留球形代理的深度判据，轻微接触的两条腿仍需要互相碰撞
         double limit = (firstRadius + secondRadius) * DEEP_OVERLAP;
         double limitSq = limit * limit;
         Vector3d a = new Vector3d();
@@ -323,6 +327,35 @@ public final class PlanRagdoll {
         return false;
     }
 
+    /** 分离轴检测，不把有向盒只在角落交叠的情况漏成自碰撞 */
+    private static boolean boxesOverlap(RigidBody a, RigidBody b) {
+        Vector3d[] aa = axes(a);
+        Vector3d[] bb = axes(b);
+        Vector3d delta = new Vector3d(b.pos).sub(a.pos);
+        for (Vector3d axis : aa) if (separated(axis, delta, aa, a.halfExtents, bb, b.halfExtents)) return false;
+        for (Vector3d axis : bb) if (separated(axis, delta, aa, a.halfExtents, bb, b.halfExtents)) return false;
+        for (Vector3d one : aa) for (Vector3d two : bb) {
+            Vector3d axis = new Vector3d(one).cross(two);
+            if (axis.lengthSquared() > 1e-12 && separated(axis, delta, aa, a.halfExtents, bb, b.halfExtents)) return false;
+        }
+        return true;
+    }
+
+    private static Vector3d[] axes(RigidBody body) {
+        return new Vector3d[]{body.rot.transform(new Vector3d(1, 0, 0)),
+                body.rot.transform(new Vector3d(0, 1, 0)), body.rot.transform(new Vector3d(0, 0, 1))};
+    }
+
+    private static boolean separated(Vector3d axis, Vector3d delta, Vector3d[] aa, Vector3d ah,
+                                     Vector3d[] bb, Vector3d bh) {
+        double radius = Math.abs(axis.dot(aa[0]))*ah.x + Math.abs(axis.dot(aa[1]))*ah.y
+                + Math.abs(axis.dot(aa[2]))*ah.z + Math.abs(axis.dot(bb[0]))*bh.x
+                + Math.abs(axis.dot(bb[1]))*bh.y + Math.abs(axis.dot(bb[2]))*bh.z;
+                // 仅轻微相交的相邻肢体仍保留碰撞，不把正常两腿之间的约束剔除
+        double tolerance = 0.2D * Math.min(Math.min(ah.x, Math.min(ah.y, ah.z)),
+                Math.min(bh.x, Math.min(bh.y, bh.z)));
+        return Math.abs(axis.dot(delta)) >= radius - tolerance * axis.length();
+    }
     /** 世界坐标点是否落在刚体盒内（按刚体自己的朝向判） */
     private static boolean containsCentre(RigidBody box, Vector3d point) {
         Vector3d local = new Vector3d(point).sub(box.pos);

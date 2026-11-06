@@ -27,3 +27,7 @@ forge*changelog.txt
 
 # workbuddy
 .workbuddy/
+
+# 本地测试源码与资源
+/src/gameTest/
+/src/test/
