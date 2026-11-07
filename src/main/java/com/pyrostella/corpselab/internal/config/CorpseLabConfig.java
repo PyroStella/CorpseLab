@@ -3,12 +3,6 @@ package com.pyrostella.corpselab.internal.config;
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
-/**
- * 玩法与物理数值放在 SERVER spec 上，由服务端把它们下发给每个客户端
- * 表现层相关的放在 CLIENT spec 上
- *
- * <p>这里的默认值只是调参的起点，不是最终值
- */
 public final class CorpseLabConfig {
 
     public static final Server SERVER;
@@ -53,7 +47,7 @@ public final class CorpseLabConfig {
             b.comment("尸体物理上限").push("physics");
 
             maxLaunchSpeed = b
-                    .comment("击飞速度的硬上限，单位为格每秒", "防止大爆炸把尸体射出世界之外")
+                    .comment("击飞速度的硬上限，单位为格每秒")
                     .defineInRange("maxLaunchSpeed", 128.0D, 1.0D, 1024.0D);
 
             partSelfCollision = b
@@ -137,7 +131,7 @@ public final class CorpseLabConfig {
                     .define("hideVanillaDeathAnimation", true);
 
             collisionBoxDisplay = b
-                    .comment("显示尸体肢体碰撞箱，仅影响本机")
+                    .comment("显示尸体肢体碰撞箱")
                     .define("collisionBoxDisplay", false);
 
             b.pop();

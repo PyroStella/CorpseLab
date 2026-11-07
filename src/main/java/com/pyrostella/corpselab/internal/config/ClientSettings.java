@@ -18,12 +18,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 服务端所知的、每个玩家客户端自己的设置值
+ * 缓存每个玩家客户端自报的设置值。
  *
- * <p>客户端设置属于表现层（ragdoll 相机、操作提示），保存在该玩家本机的文件里
- * 所以服务端无法直接读写，而设置菜单又要显示它们
- * 这就只能向客户端询问，再把答复缓存起来
- * 从不回应的玩家看到的那几行就标成未知
+ * <p>客户端设置存在玩家本机，服务端读不到，只能向客户端询问后缓存；
+ * 没回应的玩家对应项标为未知。
  */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class ClientSettings {
@@ -42,7 +40,7 @@ public final class ClientSettings {
         return REPORTED.getOrDefault(player.getUUID(), Map.of()).get(path);
     }
 
-    /** 记下客户端自报的设置值，若菜单正开着就重画一遍 */
+    /** 记录客户端自报的设置；菜单开着则刷新 */
     public static void report(ServerPlayer player, Map<String, String> values) {
         REPORTED.put(player.getUUID(), Map.copyOf(values));
         if (player.containerMenu instanceof ConfigMenu menu) {
@@ -50,7 +48,7 @@ public final class ClientSettings {
         }
     }
 
-    /** 让客户端改它自己的一项设置，并假定它会照做 */
+    /** 通知客户端修改某项设置，并先按新值缓存 */
     public static void set(ServerPlayer player, String path, String value) {
         Map<String, String> known = new HashMap<>(REPORTED.getOrDefault(player.getUUID(), Map.of()));
         known.put(path, value);

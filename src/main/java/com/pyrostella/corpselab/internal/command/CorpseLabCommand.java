@@ -25,7 +25,7 @@ public final class CorpseLabCommand {
     @SubscribeEvent
     public static void onRegister(RegisterCommandsEvent event) {
         // 菜单对所有玩家开放，具体设置的编辑权限由菜单检查
-        event.getDispatcher().register(Commands.literal("corpselab")
+        event.getDispatcher().register(Commands.literal(CorpseLab.MOD_ID)
                 .then(Commands.literal("config").executes(CorpseLabCommand::openMenu))
                 .then(Commands.literal("revive")
                         .requires(source -> source.hasPermission(ConfigMenu.PERMISSION_LEVEL))

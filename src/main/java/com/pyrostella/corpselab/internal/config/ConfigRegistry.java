@@ -10,40 +10,27 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 模组的所有设置，通过遍历配置 spec 自身发现
- *
- * <p>设置菜单从这里读取配置项，新设置会自动加入菜单
- * 对应名称与简短说明在语言文件中维护
+ * 模组所有设置，通过遍历配置 spec 自动发现；菜单由此读取，新设置会自动出现。
+ * 名称与说明在语言文件中维护。
  */
 public final class ConfigRegistry {
 
-    /** 一项设置需要什么样的控件，以及如何解析传输值 */
+    /** 设置类型，决定用什么控件、如何解析传输值 */
     public enum Kind {
         BOOLEAN,
         INTEGER,
         DECIMAL,
         STRING_LIST,
         STRING,
-        /** 只能在固定的几个名字里选，界面点击时循环切换 */
-        ENUM
+        ENUM        // 固定几个名字里选，界面点击循环切换
     }
 
-    /** 一项配置的元数据，菜单根据类型选择控件 */
-    public record Entry(String path,
-                        String section,
-                        String name,
-                        Kind kind,
-                        String comment,
-                        Object defaultValue,
-                        Double min,
-                        Double max,
-                        boolean serverSide) {
-    }
+    /** 一项配置的元数据，菜单据此选择控件 */
+    public record Entry(String path, String section, String name, Kind kind, String comment, Object defaultValue, Double min, Double max, boolean serverSide) {}
 
     private static List<Entry> entries;
 
-    private ConfigRegistry() {
-    }
+    private ConfigRegistry() {}
 
     public static synchronized List<Entry> entries() {
         if (entries == null) {
@@ -64,7 +51,7 @@ public final class ConfigRegistry {
         return null;
     }
 
-    /** 按顶层分区分组的条目，保持声明顺序 */
+    /** 按顶层分区分组，保持声明顺序 */
     public static Map<String, List<Entry>> bySection() {
         Map<String, List<Entry>> grouped = new LinkedHashMap<>();
         for (Entry entry : entries()) {
@@ -131,16 +118,12 @@ public final class ConfigRegistry {
         return Kind.STRING;
     }
 
-    /**
-     * 一项设置背后的文件是否真的已经加载
-     *
-     * <p>主菜单里服务端设置并不存在，在那里读它会抛异常
-     */
+    /** 配置文件是否已加载；主菜单里服务端设置尚未加载，此时读取会抛异常 */
     public static boolean isLoaded(Entry entry) {
         return (entry.serverSide() ? CorpseLabConfig.SERVER_SPEC : CorpseLabConfig.CLIENT_SPEC).isLoaded();
     }
 
-    /** 一项设置的当前值，从运行中的配置读取 */
+    /** 从运行中的配置读取当前值 */
     @SuppressWarnings("unchecked")
     public static Object get(Entry entry) {
         ForgeConfigSpec spec = entry.serverSide() ? CorpseLabConfig.SERVER_SPEC : CorpseLabConfig.CLIENT_SPEC;
@@ -153,11 +136,7 @@ public final class ConfigRegistry {
         return holder;
     }
 
-    /**
-     * 写入一项设置并持久化
-     *
-     * @return 错误消息；值被接受则为 null
-     */
+    /** 写入并持久化；成功返回 null，否则返回错误消息 */
     @SuppressWarnings("unchecked")
     public static String set(Entry entry, Object value) {
         ForgeConfigSpec spec = entry.serverSide() ? CorpseLabConfig.SERVER_SPEC : CorpseLabConfig.CLIENT_SPEC;
@@ -190,7 +169,7 @@ public final class ConfigRegistry {
         }
     }
 
-    /** 值的传输形式：和展示形式不同，它是精确的，所以能原样往返 */
+    /** 精确的传输形式，可原样往返 */
     public static String encode(Object value) {
         if (value instanceof List<?> list) {
             return String.join(",", list.stream().map(String::valueOf).toList());
@@ -198,7 +177,7 @@ public final class ConfigRegistry {
         return String.valueOf(value);
     }
 
-    /** 把传输形式的值解析回设置持有的类型，解析不了则为 null */
+    /** 解析传输值；失败返回 null */
     public static Object decode(Entry entry, String raw) {
         try {
             return switch (entry.kind()) {
@@ -214,7 +193,7 @@ public final class ConfigRegistry {
         }
     }
 
-    /** 枚举设置的全部可选名字，例如 ARTICULATED 与 FREE */
+    /** 枚举的全部可选名字 */
     public static List<String> options(Entry entry) {
         if (!(entry.defaultValue() instanceof Enum<?> constant)) {
             return List.of();
@@ -228,7 +207,7 @@ public final class ConfigRegistry {
         return names;
     }
 
-    /** 按名字找枚举常量，不分大小写；找不到则为 null */
+    /** 按名字找枚举常量，忽略大小写；找不到返回 null */
     public static Object parseEnum(Entry entry, String raw) {
         if (raw == null || !(entry.defaultValue() instanceof Enum<?> constant)) {
             return null;
@@ -242,7 +221,7 @@ public final class ConfigRegistry {
         return null;
     }
 
-    /** 循环到下一个枚举值，用于界面上的点击切换 */
+    /** 循环到下一个枚举值，供界面点击切换 */
     public static String next(Entry entry, String current) {
         List<String> options = options(entry);
         if (options.isEmpty()) {
@@ -251,7 +230,7 @@ public final class ConfigRegistry {
         return options.get((options.indexOf(current) + 1) % options.size());
     }
 
-    /** 把值格式化用于显示，整数后面不带 .0 */
+    /** 格式化用于显示，整数不带 .0 */
     public static String display(Object value) {
         if (value instanceof Double d) {
             return trim(d);
