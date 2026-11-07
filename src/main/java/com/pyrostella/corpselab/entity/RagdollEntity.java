@@ -1,6 +1,7 @@
 package com.pyrostella.corpselab.entity;
 
 import com.pyrostella.corpselab.CorpseLab;
+import com.pyrostella.corpselab.api.CorpseView;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.net.RagdollPosePacket;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
@@ -41,7 +42,7 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
     private final PoseBuffer poseBuffer = new PoseBuffer(PART_COUNT);
 
     /** 仅服务端持有的抓取状态 */
-    private final CorpseGrabState grab = new CorpseGrabState();
+    private final CorpseGrabState grab = new CorpseGrabState(this);
     private final CorpseLimbBridge limbs = new CorpseLimbBridge(this);
 
     public RagdollEntity(EntityType<? extends RagdollEntity> type, Level level) {
@@ -101,8 +102,11 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
 
     @Override
     public void remove(RemovalReason reason) {
-        this.limbs.clear();
         super.remove(reason);
+        this.grab.release(reason.shouldDestroy()
+                ? com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason.REMOVED
+                : com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason.UNLOADED);
+        this.limbs.clear();
     }
 
     @Override
@@ -161,6 +165,10 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
      */
     public boolean tryGrab(Player grabber) {
         return this.skeleton != null && this.grab.tryGrab(grabber, this.skeleton.bodies());
+    }
+
+    public Optional<CorpseView.Grab> grabInfo() {
+        return this.grab.snapshot();
     }
 
     public void releaseGrab() {

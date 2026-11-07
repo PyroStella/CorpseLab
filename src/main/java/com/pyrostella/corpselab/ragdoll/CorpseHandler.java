@@ -1,6 +1,7 @@
 package com.pyrostella.corpselab.ragdoll;
 
 import com.pyrostella.corpselab.CorpseLab;
+import com.pyrostella.corpselab.api.Corpses;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.entity.CorpseEntity;
 import com.pyrostella.corpselab.entity.SettlingBody;
@@ -8,34 +9,24 @@ import com.pyrostella.corpselab.plan.CorpseSourceData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/**
- * 把玩家的死亡变成一具保留其物品的尸体
- *
- * <p>刻意挂在死亡事件而非掉落事件上：在原版执行掉落逻辑之前
- * 清空背包，就没有东西可散落，物品会进入尸体而不会
- * 散在旁边的地上。保留物品栏选项仍然生效，身体照旧留下
- * 但玩家保住自己携带的东西
- */
+/** 玩家确认死亡后的尸体创建与姿态补发 */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class CorpseHandler {
 
     private CorpseHandler() {
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGH)
-    public static void onDeath(LivingDeathEvent event) {
+    /** 确认死亡之后、原版掉落之前调用，取消死亡不会执行 */
+    public static void onDeath(ServerPlayer player, net.minecraft.world.damagesource.DamageSource damage) {
         if (!CorpseLabConfig.SERVER.corpseEnabled.get()) {
             return;
         }
-        if (!(event.getEntity() instanceof ServerPlayer player) || player.level().isClientSide) {
+        if (player.level().isClientSide) {
             return;
         }
         if (player.isSpectator()) {
@@ -46,8 +37,8 @@ public final class CorpseHandler {
         Vec3 momentum = CorpseSourceData.velocity(player);
 
         // 一击致命的爆炸会给尸体补上朝外的初速度
-        Vec3 blast = event.getSource().getSourcePosition();
-        if (event.getSource().is(DamageTypeTags.IS_EXPLOSION) && blast != null) {
+        Vec3 blast = damage.getSourcePosition();
+        if (damage.is(DamageTypeTags.IS_EXPLOSION) && blast != null) {
             Vec3 away = player.position()
                     .add(0.0D, player.getBbHeight() * 0.5D, 0.0D)
                     .subtract(blast);
@@ -56,13 +47,7 @@ public final class CorpseHandler {
                         CorpseLabConfig.SERVER.corpseExplosionLaunchMultiplier.get() * 2.0D));
             }
         }
-        CorpseEntity corpse = CorpseEntity.of(player, momentum);
-
-        if (!player.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY)) {
-            corpse.takeInventoryFrom(player);
-        }
-
-        player.level().addFreshEntity(corpse);
+        Corpses.create(player, momentum);
     }
 
     /**
@@ -71,8 +56,7 @@ public final class CorpseHandler {
      */
     @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
-        if (event.getTarget() instanceof SettlingBody body
-                && event.getEntity() instanceof ServerPlayer player) {
+        if (event.getTarget() instanceof SettlingBody body && event.getEntity() instanceof ServerPlayer player) {
             body.sendPoseTo(player);
         }
     }

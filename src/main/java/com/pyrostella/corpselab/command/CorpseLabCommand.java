@@ -2,6 +2,8 @@ package com.pyrostella.corpselab.command;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.pyrostella.corpselab.CorpseLab;
+import com.pyrostella.corpselab.api.Corpses;
+import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import com.pyrostella.corpselab.menu.ConfigMenu;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -45,19 +47,14 @@ public final class CorpseLabCommand {
     private static int revive(CommandContext<CommandSourceStack> context,java.util.Collection<? extends net.minecraft.world.entity.Entity> targets) {
         int started = 0;
         for (var entity : targets) {
-            if (!(entity instanceof com.pyrostella.corpselab.entity.PlanCorpseEntity corpse)) continue;
-            var result = corpse.beginRevival();
-            if (result == com.pyrostella.corpselab.entity.PlanCorpseEntity.RevivalResult.STARTED) started++;
-            else context.getSource().sendFailure(Component.literal("复活未开始："+switch (result) {
-                case ALREADY_REVIVING -> "尸体正在复活";
-                case MISSING_DATA -> "缺少原生物数据";
-                case UUID_IN_USE -> "原生物或乘客的 UUID 仍在使用中";
-                default -> "原生物数据无效或类型不支持";
-            }));
+            if (!(entity instanceof PlanCorpseEntity corpse)) continue;
+            if (Corpses.revive(corpse)) started++;
+            else Corpses.revivalProblem(corpse).ifPresent(problem -> context.getSource().sendFailure(
+                    Component.translatable("corpselab.revival." + problem.name().toLowerCase(java.util.Locale.ROOT))));
         }
         int count = started;
         if (count > 0) context.getSource().sendSuccess(() -> Component.literal("已开始复活 "+count+" 具生物尸体"),true);
-        else if (targets.stream().noneMatch(entity -> entity instanceof com.pyrostella.corpselab.entity.PlanCorpseEntity))
+        else if (targets.stream().noneMatch(entity -> entity instanceof PlanCorpseEntity))
             context.getSource().sendFailure(Component.literal("目标不是生物尸体"));
         return started;
     }

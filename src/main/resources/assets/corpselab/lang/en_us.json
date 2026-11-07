@@ -85,7 +85,6 @@
   "corpselab.config.display.collisionBoxDisplay.description": "Show nearby body collision shapes for debugging.",
   "corpselab.config.plan_corpse.mode.articulated": "Jointed",
   "corpselab.config.plan_corpse.mode.free": "Independent",
-
   "itemGroup.corpselab.icons": "CorpseLab Icons",
   "item.corpselab.red_cross": "Red Cross",
   "item.corpselab.forbidden": "Forbidden",
@@ -99,5 +98,14 @@
   "item.corpselab.green_arrow_left": "Green Arrow Left",
   "item.corpselab.green_arrow_right": "Green Arrow Right",
   "block.corpselab.monster_skull": "Monster Skull",
-  "block.corpselab.player_skull": "Player Skull"
+  "block.corpselab.player_skull": "Player Skull",
+  "corpselab.revival.not_corpse": "Target is not a corpse.",
+  "corpselab.revival.server_only": "Revival requires the server.",
+  "corpselab.revival.main_thread": "Revival requires the server main thread.",
+  "corpselab.revival.removed": "The corpse has been removed.",
+  "corpselab.revival.unsupported": "This corpse does not support revival.",
+  "corpselab.revival.already_reviving": "The corpse is already reviving.",
+  "corpselab.revival.missing_data": "The original entity data is missing.",
+  "corpselab.revival.uuid_in_use": "The original entity or passenger UUID is in use.",
+  "corpselab.revival.invalid_entity": "The original entity data is invalid or unsupported."
 }

@@ -8,10 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.level.Explosion;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Supplier;
 
 /** 环境扩展入口：低优先级先执行，高优先级可覆盖环境参数或补充施力 */
@@ -27,8 +24,7 @@ public final class LimbEffects {
     }
 
     /** 通常在模组初始化时注册；返回句柄可撤销，既有肢体也会接收注册变化 */
-    public static ExtensionRegistry.Registration register(ResourceLocation id, int priority,
-            Supplier<? extends LimbEnvironmentEffect> factory) {
+    public static ExtensionRegistry.Registration register(ResourceLocation id, int priority, Supplier<? extends LimbEnvironmentEffect> factory) {
         return REGISTRY.register(id.toString(), priority, factory);
     }
 
@@ -80,8 +76,7 @@ public final class LimbEffects {
 
     public static final class Session {
         private final Context context;
-        private final Map<ExtensionRegistry.Entry<Supplier<? extends LimbEnvironmentEffect>>,
-                LimbEnvironmentEffect> instances = new HashMap<>();
+        private final Map<ExtensionRegistry.Entry<Supplier<? extends LimbEnvironmentEffect>>, LimbEnvironmentEffect> instances = new HashMap<>();
 
         private Session(Context context) {
             this.context = context;

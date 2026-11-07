@@ -69,10 +69,11 @@ minecraft {
         }
 
         server {
-            args '--nogui'
+            args '--nogui', '--mixin.config', 'corpselab.mixins.json'
         }
 
         gameTestServer {
+            args '--mixin.config', 'corpselab.mixins.json'
             workingDirectory project.file('run-gametest')
             mods {
                 "${mod_id}" {
@@ -110,6 +111,7 @@ dependencies {
 
     // geo 模型渲染用；物理内核本身不依赖它
     compileOnly fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
+    compileOnly 'com.eliotlash.mclib:mclib:20'
     // 使用 -PwithoutGeckoLib 验证完全未安装的运行环境
     if (!project.hasProperty('withoutGeckoLib')) {
         runtimeOnly fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")

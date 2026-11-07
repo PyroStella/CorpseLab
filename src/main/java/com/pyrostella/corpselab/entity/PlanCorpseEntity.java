@@ -1,14 +1,6 @@
 package com.pyrostella.corpselab.entity;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-import org.joml.Quaternionf;
-import org.joml.Quaterniond;
-import org.joml.Quaterniondc;
-import org.joml.Vector3d;
+import java.util.*;
 
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.CorpseLabRegistry;
@@ -22,6 +14,15 @@ import com.pyrostella.corpselab.plan.PlanConfig;
 import com.pyrostella.corpselab.plan.PlanPose;
 import com.pyrostella.corpselab.plan.PlanRagdoll;
 import com.pyrostella.corpselab.physics.RigidBody;
+import com.pyrostella.corpselab.api.CorpseView;
+import com.pyrostella.corpselab.api.event.CorpseReviveEvent;
+import com.pyrostella.corpselab.api.event.CorpseGrabEvent;
+import net.minecraftforge.common.MinecraftForge;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Quaternionf;
+import org.joml.Quaterniond;
+import org.joml.Quaterniondc;
+import org.joml.Vector3d;
 
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -74,9 +75,10 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     /** 已存在的 tick 数，用于过期清理 */
     private int age;
     private CorpseRevival revival;
+    private boolean startingRevival, finishingRevival;
 
     /** 仅服务端持有的抓取状态 */
-    private final CorpseGrabState grab = new CorpseGrabState();
+    private final CorpseGrabState grab = new CorpseGrabState(this);
     private final CorpseLimbBridge limbs = new CorpseLimbBridge(this);
 
     public PlanCorpseEntity(EntityType<?> type, Level level) {
@@ -109,16 +111,6 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         corpse.setCorpseSize(source == null ? sourceWidth(sourceType) : source.getBbWidth());
         corpse.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
 
-        // 同区域尸体数量上限：超出时删最老的，避免一地尸体拖垮服务端
-        List<PlanCorpseEntity> existing = level.getEntitiesOfClass(PlanCorpseEntity.class,
-                new AABB(pos, pos).inflate(96.0D));
-        int max = PlanConfig.maxPerArea();
-        if (existing.size() >= max) {
-            existing.sort(Comparator.comparingInt(PlanCorpseEntity::age).reversed());
-            for (int i = 0; i < existing.size() - max + 1; i++) {
-                existing.get(i).discard();
-            }
-        }
         // 继承死亡那一刻的姿势：奔跑、张望、下蹲都被记住，尸体不是凭空站直的
         PlanPose.Frame[] pose = source == null ? null : PlanPose.frames(plan, source);
         corpse.ragdoll = new PlanRagdoll(plan, pos.x, pos.y, pos.z,
@@ -126,7 +118,23 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         corpse.ragdoll.setCollider(new LevelCollider(level));
         corpse.syncAnchorToRagdoll();
 
-        level.addFreshEntity(corpse);
+        boolean committed = false;
+        try {
+            if (net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                    new com.pyrostella.corpselab.api.event.CorpseCreateEvent.Pre(corpse,source))) return null;
+            if (corpse.isRemoved() || !level.addFreshEntity(corpse) || corpse.isRemoved()) return null;
+            committed = true;
+        } finally {
+            if (!committed) corpse.discard();
+        }
+        // 新尸体入场成功后才执行数量淘汰，创建被拒绝时保留原有尸体
+        List<PlanCorpseEntity> existing = level.getEntitiesOfClass(PlanCorpseEntity.class,
+                new AABB(pos,pos).inflate(96.0D),other -> other != corpse && !other.isRemoved());
+        int max = PlanConfig.maxPerArea();
+        existing.sort(Comparator.comparingInt(PlanCorpseEntity::age).reversed());
+        for (int i=0;i<existing.size()-max+1;i++) existing.get(i).discard();
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                new com.pyrostella.corpselab.api.event.CorpseCreateEvent.Post(corpse,source));
         return corpse;
     }
 
@@ -144,10 +152,13 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         }
 
         if (this.revival != null) {
-            boolean done = this.revival.advance();
-            this.revival.apply(this.ragdoll);
+            CorpseRevival active=this.revival;
+            boolean done = active.advance();
+            active.apply(this.ragdoll);
             this.syncAnchorToRagdoll();
             this.sendCurrentPose();
+            MinecraftForge.EVENT_BUS.post(new CorpseReviveEvent.Tick(this,active.id(),active.elapsed(),active.duration()));
+            if (this.revival!=active || this.isRemoved()) return;
             if (done) this.finishRevival();
             return;
         }
@@ -209,8 +220,10 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     public void remove(RemovalReason reason) {
-        this.limbs.clear();
         super.remove(reason);
+        this.grab.release(reason.shouldDestroy() ? CorpseGrabEvent.ReleaseReason.REMOVED : CorpseGrabEvent.ReleaseReason.UNLOADED);
+        if (reason.shouldDestroy()) interruptRevival(CorpseReviveEvent.Interruption.REMOVED);
+        this.limbs.clear();
     }
 
     @Override
@@ -263,7 +276,11 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
 
     @Override
     public boolean tryGrab(net.minecraft.world.entity.player.Player grabber) {
-        return this.revival == null && this.ragdoll != null && this.grab.tryGrab(grabber, this.ragdoll.bodies());
+        return !this.startingRevival && this.revival == null && this.ragdoll != null && this.grab.tryGrab(grabber, this.ragdoll.bodies());
+    }
+
+    public Optional<CorpseView.Grab> grabInfo() {
+        return this.grab.snapshot();
     }
 
     @Override
@@ -298,8 +315,11 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         return index;
     }
 
+    public int revivalBasePartIndex() { return this.revival == null ? basePartIndex() : this.revival.base(); }
+
     public enum RevivalResult { STARTED, ALREADY_REVIVING, MISSING_DATA, UUID_IN_USE, INVALID_ENTITY }
     public boolean isReviving() { return this.entityData.get(REVIVING); }
+    public boolean limbRegrowing(int index) { return this.revival != null && this.revival.regrowing(index); }
     public float limbScale(int index) {
         if (this.level().isClientSide) return this.poses == null ? 1 : this.poses.scale(index);
         return this.revival == null ? 1 : this.revival.scale(index);
@@ -309,7 +329,45 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     /** 仅服务端调用，未来物品、技能等触发器可复用此入口 */
     public RevivalResult beginRevival(int durationTicks) {
         if (durationTicks < 1) throw new IllegalArgumentException("复活动画时长必须为正数");
-        if (!(this.level() instanceof ServerLevel level) || this.ragdoll == null || this.plan.boxCount() == 0)
+        return beginRevival(com.pyrostella.corpselab.api.RevivalOptions.defaults().duration(durationTicks));
+    }
+
+    public RevivalResult beginRevival(com.pyrostella.corpselab.api.RevivalOptions options) {
+        if (startingRevival || finishingRevival) return RevivalResult.ALREADY_REVIVING;
+        RevivalResult ready = revivalReadiness();
+        if (ready != RevivalResult.STARTED) return ready;
+        startingRevival=true;
+        try {
+            UUID id=UUID.randomUUID();
+            var pre=new CorpseReviveEvent.Pre(this,id,options);
+            if (MinecraftForge.EVENT_BUS.post(pre)) return RevivalResult.INVALID_ENTITY;
+            ready=revivalReadiness();
+            if (ready!=RevivalResult.STARTED) return ready;
+            options=pre.getOptions();
+            int base = basePartIndex();
+            if (options.basePart() != null) {
+                base = -1;
+                for (var box : this.plan.boxes()) if (box.path().equals(options.basePart())) base = box.index();
+                if (base < 0) return RevivalResult.INVALID_ENTITY;
+            }
+            var target = options.target().sample(com.pyrostella.corpselab.api.Corpses.find(this).orElseThrow(), this.plan);
+            if (this.isRemoved() || target == null || !target.matches(this.plan)) return RevivalResult.INVALID_ENTITY;
+            var active=new CorpseRevival(this.ragdoll,base,this.getYRot(),options.durationTicks(),target,id);
+            this.grab.release(CorpseGrabEvent.ReleaseReason.REVIVAL);
+            if (this.isRemoved()) return RevivalResult.INVALID_ENTITY;
+            this.revival=active;
+            this.limbs.clear();
+            this.entityData.set(REVIVING,true);
+            active.apply(this.ragdoll);
+            this.syncAnchorToRagdoll(); this.sendCurrentPose();
+            MinecraftForge.EVENT_BUS.post(new CorpseReviveEvent.Start(this,id,active.duration()));
+            return RevivalResult.STARTED;
+        } finally { startingRevival=false; }
+    }
+
+    /** STARTED 在此表示允许启动，查询不会修改尸体状态 */
+    public RevivalResult revivalReadiness() {
+        if (this.isRemoved() || !(this.level() instanceof ServerLevel level) || this.ragdoll == null || this.plan.boxCount() == 0)
             return RevivalResult.INVALID_ENTITY;
         if (this.revival != null) return RevivalResult.ALREADY_REVIVING;
         if (this.sourceEntityData.isEmpty() || !this.sourceEntityData.hasUUID("UUID")) return RevivalResult.MISSING_DATA;
@@ -317,12 +375,27 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         if (!(candidate instanceof LivingEntity) || candidate instanceof net.minecraft.world.entity.player.Player)
             return RevivalResult.INVALID_ENTITY;
         if (hasUuidConflict(level,candidate)) return RevivalResult.UUID_IN_USE;
-        this.releaseGrab(); this.limbs.clear();
-        this.revival = new CorpseRevival(this.ragdoll,basePartIndex(),this.getYRot(),durationTicks);
-        this.entityData.set(REVIVING,true);
-        this.revival.apply(this.ragdoll);
-        this.syncAnchorToRagdoll(); this.sendCurrentPose();
         return RevivalResult.STARTED;
+    }
+
+    public java.util.Optional<com.pyrostella.corpselab.api.CorpseView.Revival> revivalInfo() {
+        return this.revival == null ? java.util.Optional.empty() : java.util.Optional.of(
+                new com.pyrostella.corpselab.api.CorpseView.Revival(this.revival.elapsed(), this.revival.duration()));
+    }
+
+    /** 主动停止动画并保留当前姿态与原始数据，下一 tick 恢复普通物理 */
+    public boolean stopRevival() {
+        return !finishingRevival && interruptRevival(CorpseReviveEvent.Interruption.STOPPED);
+    }
+
+    private boolean interruptRevival(CorpseReviveEvent.Interruption reason) {
+        var active=this.revival;
+        if (active==null) return false;
+        this.revival=null;
+        this.entityData.set(REVIVING,false);
+        if (!this.isRemoved()) this.sendCurrentPose();
+        MinecraftForge.EVENT_BUS.post(new CorpseReviveEvent.Interrupted(this,active.id(),reason));
+        return true;
     }
 
     private Entity restoreCandidate(ServerLevel level) {
@@ -355,30 +428,46 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     }
 
     private void finishRevival() {
-        ServerLevel level = (ServerLevel)this.level();
-        Entity candidate = restoreCandidate(level);
-        if (candidate == null || hasUuidConflict(level,candidate)) { cancelRevival(); return; }
-        // 同 UUID 的原生物若还在死亡倒计时中，完成交接时移除它，绝不覆盖活实体
-        candidate.getSelfAndPassengers().forEach(member -> {
-            for (ServerLevel dimension : level.getServer().getAllLevels()) {
-                Entity existing = dimension.getEntity(member.getUUID());
-                if (existing instanceof LivingEntity living && !living.isAlive() && existing.getType() == member.getType()) existing.discard();
+        ServerLevel level=(ServerLevel)this.level();
+        CorpseRevival active=this.revival;
+        Entity candidate=restoreCandidate(level);
+        if (!(candidate instanceof LivingEntity living)) {
+            interruptRevival(CorpseReviveEvent.Interruption.INVALID_DATA); return;
+        }
+        if (hasUuidConflict(level,candidate)) {
+            interruptRevival(CorpseReviveEvent.Interruption.UUID_CONFLICT); return;
+        }
+        List<Entity> members=candidate.getSelfAndPassengers().toList();
+        Vec3 position=active.origin();
+        for (Entity member : members) member.moveTo(position.x,position.y,position.z,member.getYRot(),member.getXRot());
+        candidate.moveTo(position.x,position.y,position.z,active.yaw(),0);
+        living.yBodyRot=active.yaw(); living.setYHeadRot(active.yaw());
+        boolean committed=false;
+        finishingRevival=true;
+        try {
+            for (Entity member : members) {
+                // 仅让出已经死亡的同类型原实体 UUID，绝不覆盖活实体
+                for (ServerLevel dimension : level.getServer().getAllLevels()) {
+                    Entity old=dimension.getEntity(member.getUUID());
+                    if (old instanceof LivingEntity dead && !dead.isAlive() && old.getType()==member.getType()) old.discard();
+                }
+                if (!level.addFreshEntity(member) || member.isRemoved()) return;
+                if (this.revival!=active || this.isRemoved()) return;
             }
-        });
-        Vec3 position = this.revival.origin();
-        candidate.getSelfAndPassengers().forEach(member -> member.moveTo(position.x,position.y,position.z,member.getYRot(),member.getXRot()));
-        candidate.moveTo(position.x,position.y,position.z,this.revival.yaw(),0);
-        if (candidate instanceof LivingEntity living) { living.yBodyRot = this.revival.yaw(); living.setYHeadRot(this.revival.yaw()); }
-        if (level.tryAddFreshEntityWithPassengers(candidate)) this.discard();
-        else cancelRevival();
-    }
-
-    /** 还原或入场失败时保留尸体和原始记录，供调用方再次尝试 */
-    private void cancelRevival() {
-        this.revival = null;
+            // 后续成员入场回调可能移除了先前成员，全部再次核对
+            for (Entity member : members) if (member.isRemoved() || level.getEntity(member.getUUID())!=member) return;
+            committed=true;
+        } finally {
+            finishingRevival=false;
+            if (!committed) {
+                for (Entity member : members) member.discard();
+                if (this.revival==active) interruptRevival(CorpseReviveEvent.Interruption.SPAWN_FAILED);
+            }
+        }
+        this.revival=null;
         this.entityData.set(REVIVING,false);
-        this.sendCurrentPose();
-        CorpseLab.LOGGER.warn("尸体复活未完成，原始数据和尸体已保留：{}",this.sourceType);
+        this.discard();
+        MinecraftForge.EVENT_BUS.post(new CorpseReviveEvent.Complete(this,active.id(),living));
     }
 
     /** 客户端取姿态缓冲，还没收到数据时返回 null */
@@ -395,6 +484,10 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
     }
 
     public void acceptPose(double anchorX,double anchorY,double anchorZ,Vec3[] offsets,Quaternionf[] rotations,float[] scales) {
+        acceptPose(anchorX,anchorY,anchorZ,offsets,rotations,scales,new boolean[scales.length]);
+    }
+
+    public void acceptPose(double anchorX,double anchorY,double anchorZ,Vec3[] offsets,Quaternionf[] rotations,float[] scales,boolean[] regrowing) {
         this.setPos(anchorX, anchorY, anchorZ);
         this.xOld = anchorX;
         this.yOld = anchorY;
@@ -407,7 +500,7 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         if (this.poses == null || this.poses.partCount() != positions.length) {
             this.poses = new PoseBuffer(positions.length);
         }
-        this.poses.push(positions, rotations,scales);
+        this.poses.push(positions, rotations,scales,regrowing);
         this.poses.sample(1.0F);
         this.updateClientBounds();
     }

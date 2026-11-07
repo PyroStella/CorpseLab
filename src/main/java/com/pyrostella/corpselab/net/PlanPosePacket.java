@@ -26,9 +26,10 @@ public final class PlanPosePacket {
     private final Vec3[] offsets;
     private final Quaternionf[] rotations;
     private final float[] scales;
+    private final boolean[] regrowing;
 
     private PlanPosePacket(int entityId, double anchorX, double anchorY, double anchorZ,
-                           Vec3[] offsets, Quaternionf[] rotations,float[] scales) {
+                           Vec3[] offsets, Quaternionf[] rotations,float[] scales,boolean[] regrowing) {
         this.entityId = entityId;
         this.anchorX = anchorX;
         this.anchorY = anchorY;
@@ -36,6 +37,7 @@ public final class PlanPosePacket {
         this.offsets = offsets;
         this.rotations = rotations;
         this.scales = scales;
+        this.regrowing = regrowing;
     }
 
     public static PlanPosePacket of(PlanCorpseEntity entity) {
@@ -43,6 +45,7 @@ public final class PlanPosePacket {
         Vec3[] offsets = new Vec3[bodies.size()];
         Quaternionf[] rotations = new Quaternionf[bodies.size()];
         float[] scales = new float[bodies.size()];
+        boolean[] regrowing = new boolean[bodies.size()];
         double anchorX = entity.getX();
         double anchorY = entity.getY();
         double anchorZ = entity.getZ();
@@ -50,6 +53,7 @@ public final class PlanPosePacket {
         for (int i = 0; i < bodies.size(); i++) {
             RigidBody body = bodies.get(i);
             scales[i] = entity.limbScale(i);
+            regrowing[i] = entity.limbRegrowing(i);
             offsets[i] = new Vec3(
                     body.pos.x - anchorX,
                     body.pos.y - anchorY,
@@ -59,7 +63,7 @@ public final class PlanPosePacket {
                     (float) body.rot.z, (float) body.rot.w);
         }
 
-        return new PlanPosePacket(entity.getId(), anchorX, anchorY, anchorZ, offsets, rotations,scales);
+        return new PlanPosePacket(entity.getId(), anchorX, anchorY, anchorZ, offsets, rotations,scales,regrowing);
     }
 
     public PlanPosePacket(FriendlyByteBuf buf) {
@@ -67,16 +71,18 @@ public final class PlanPosePacket {
         this.anchorX = buf.readDouble();
         this.anchorY = buf.readDouble();
         this.anchorZ = buf.readDouble();
-        int count = com.pyrostella.corpselab.util.PacketReads.count(buf, 32);
+        int count = com.pyrostella.corpselab.util.PacketReads.count(buf, 33);
         this.offsets = new Vec3[count];
         this.rotations = new Quaternionf[count];
         this.scales = new float[count];
+        this.regrowing = new boolean[count];
         for (int i = 0; i < count; i++) {
             this.offsets[i] = new Vec3(buf.readFloat(), buf.readFloat(), buf.readFloat());
             this.rotations[i] = new Quaternionf(
                     buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat());
             this.scales[i] = buf.readFloat();
-            if (!Float.isFinite(this.scales[i]) || this.scales[i] < 0 || this.scales[i] > 1)
+            this.regrowing[i] = buf.readBoolean();
+            if (!Float.isFinite(this.scales[i]) || this.scales[i] < 0)
                 throw new io.netty.handler.codec.DecoderException("无效的复活缩放");
         }
     }
@@ -96,6 +102,7 @@ public final class PlanPosePacket {
             buf.writeFloat(this.rotations[i].z);
             buf.writeFloat(this.rotations[i].w);
             buf.writeFloat(this.scales[i]);
+            buf.writeBoolean(this.regrowing[i]);
         }
     }
 
@@ -103,7 +110,7 @@ public final class PlanPosePacket {
         context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> PlanCorpseClientHandler.acceptPose(
                         this.entityId, this.anchorX, this.anchorY, this.anchorZ,
-                        this.offsets, this.rotations,this.scales)));
+                        this.offsets, this.rotations,this.scales,this.regrowing)));
         context.get().setPacketHandled(true);
     }
 

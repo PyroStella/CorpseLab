@@ -11,10 +11,10 @@ public final class CorpseModelAdapters {
     private static final ExtensionRegistry<CorpseModelAdapter> REGISTRY = new ExtensionRegistry<>();
 
     static {
-        register(new ResourceLocation("corpselab", "vanilla"), 0, new VanillaModelAdapter());
+        register(new ResourceLocation(com.pyrostella.corpselab.CorpseLab.MOD_ID, "vanilla"), 0, new VanillaModelAdapter());
         // 条件分支外不解析兼容实现，未安装时不会链接任何 GeckoLib 类型
         if (net.minecraftforge.fml.ModList.get().isLoaded("geckolib")) {
-            register(new ResourceLocation("corpselab", "geckolib"), 100,
+            register(new ResourceLocation(com.pyrostella.corpselab.CorpseLab.MOD_ID, "geckolib"), 100,
                     new com.pyrostella.corpselab.client.model.gecko.GeckoModelAdapter());
         }
     }

@@ -1,15 +1,16 @@
 package com.pyrostella.corpselab.plan;
 
 import com.pyrostella.corpselab.CorpseLab;
+import com.pyrostella.corpselab.api.Corpses;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import com.pyrostella.corpselab.net.CorpseLabNetwork;
+import com.pyrostella.corpselab.net.PlanPosePacket;
 import com.pyrostella.corpselab.net.PlanSyncPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -24,9 +25,7 @@ public final class PlanCorpseHandler {
     private PlanCorpseHandler() {
     }
 
-    @SubscribeEvent
-    public static void onLivingDeath(LivingDeathEvent event) {
-        LivingEntity entity = event.getEntity();
+    public static void onDeath(LivingEntity entity) {
         if (entity.level().isClientSide() || entity instanceof Player) {
             return;
         }
@@ -40,8 +39,8 @@ public final class PlanCorpseHandler {
             return;
         }
 
-        PlanCorpseEntity corpse = PlanCorpseEntity.spawn(level, plan, entity);
-        if (corpse != null) {
+        var result = Corpses.create(entity, plan, CorpseSourceData.velocity(entity));
+        if (result.isPresent()) {
             CorpseLab.LOGGER.debug("生成尸体 {}", EntityType.getKey(entity.getType()));
         }
     }
@@ -53,9 +52,9 @@ public final class PlanCorpseHandler {
                 && event.getEntity() instanceof ServerPlayer player) {
             CorpseLabNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
-                    new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan(), corpse.appearance()));
-            CorpseLabNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                    com.pyrostella.corpselab.net.PlanPosePacket.of(corpse));
+                    new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan(), corpse.appearance())
+            );
+            CorpseLabNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PlanPosePacket.of(corpse));
         }
     }
 }

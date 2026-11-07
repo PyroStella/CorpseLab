@@ -25,10 +25,10 @@ public final class PlanCorpseClientHandler {
     }
 
     public static void acceptPose(int entityId, double anchorX, double anchorY, double anchorZ,
-                                  Vec3[] offsets, Quaternionf[] rotations,float[] scales) {
+                                  Vec3[] offsets, Quaternionf[] rotations,float[] scales,boolean[] regrowing) {
         PlanCorpseEntity corpse = find(entityId);
         if (corpse != null) {
-            corpse.acceptPose(anchorX, anchorY, anchorZ, offsets, rotations,scales);
+            corpse.acceptPose(anchorX, anchorY, anchorZ, offsets, rotations,scales,regrowing);
         }
     }
 

@@ -9,6 +9,7 @@ public final class PoseBuffer {
     private final int partCount;
     private Vec3[] pendingPositions, currentPositions, previousPositions;
     private Quaternionf[] pendingRotations, currentRotations, previousRotations;
+    private boolean[] pendingRegrowing, currentRegrowing;
     private float[] pendingScales, currentScales, previousScales;
     private final Vec3[] sampledPositions;
     private final Quaternionf[] sampledRotations;
@@ -26,8 +27,14 @@ public final class PoseBuffer {
         float[] scales = new float[partCount]; Arrays.fill(scales,1); push(positions,rotations,scales);
     }
     public void push(Vec3[] positions,Quaternionf[] rotations,float[] scales) {
-        if (positions.length != partCount || rotations.length != partCount || scales.length != partCount)
+        boolean[] regrowing = new boolean[partCount];
+        for (int i = 0; i < partCount; i++) regrowing[i] = scales[i] < 1;
+        push(positions, rotations, scales, regrowing);
+    }
+    public void push(Vec3[] positions,Quaternionf[] rotations,float[] scales,boolean[] regrowing) {
+        if (positions.length != partCount || rotations.length != partCount || scales.length != partCount || regrowing.length != partCount)
             throw new IllegalArgumentException("姿态部件数量不符");
+        pendingRegrowing = regrowing.clone();
         pendingPositions = positions.clone(); pendingScales = scales.clone();
         pendingRotations = new Quaternionf[partCount];
         for (int i = 0; i < partCount; i++) pendingRotations[i] = new Quaternionf(rotations[i]);
@@ -39,6 +46,8 @@ public final class PoseBuffer {
     }
     private void promote() {
         previousPositions = currentPositions; previousRotations = currentRotations; previousScales = currentScales;
+        boolean[] previousRegrowing = currentRegrowing;
+        currentRegrowing = pendingRegrowing;
         currentPositions = pendingPositions; currentRotations = pendingRotations; currentScales = pendingScales;
         pendingPositions = null; pendingRotations = null; pendingScales = null;
         if (previousPositions == null) {
@@ -47,7 +56,7 @@ public final class PoseBuffer {
         previousPositions = previousPositions.clone(); previousRotations = previousRotations.clone(); previousScales = previousScales.clone();
         for (int i = 0; i < partCount; i++) {
             // 第一次进入长回阶段时立即隐藏旧断肢，不把碎块从原位置拖向目标
-            if (currentScales[i] < 1 && previousScales[i] == 1) {
+            if (currentRegrowing[i] && (previousRegrowing == null || !previousRegrowing[i])) {
                 previousScales[i] = 0; previousPositions[i] = currentPositions[i]; previousRotations[i] = currentRotations[i];
             }
         }

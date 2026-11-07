@@ -40,7 +40,7 @@ public abstract class SettlingBody extends RagdollEntity {
         this.age = age;
     }
 
-    protected boolean isFrozen() {
+    public boolean isFrozen() {
         return frozen;
     }
 

@@ -1,8 +1,15 @@
 package com.pyrostella.corpselab.entity;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import com.pyrostella.corpselab.api.CorpseView;
+import com.pyrostella.corpselab.api.event.CorpseGrabEvent;
+import com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraftforge.common.MinecraftForge;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
 import com.pyrostella.corpselab.physics.RigidBody;
 
@@ -17,12 +24,16 @@ final class CorpseGrabState {
     /** 小型肢体的最小选取半径，单位为方块 */
     private static final double MIN_PICK_RADIUS = 0.6D;
 
+    private final Entity corpse;
+    private boolean selecting;
+    CorpseGrabState(Entity corpse) { this.corpse=corpse; }
     private UUID grabberId;
     private int grabbedPart = -1;
 
     /** 依据服务端所见的玩家视线选择最近的刚体 */
     boolean tryGrab(Player grabber, List<RigidBody> bodies) {
-        if (bodies.isEmpty() || !CorpseLabConfig.SERVER.grabEnabled.get()) {
+        if (selecting || isGrabbed() || bodies.isEmpty() || !validPlayer(grabber)
+                || !CorpseLabConfig.SERVER.grabEnabled.get() || playerBusy(grabber)) {
             return false;
         }
 
@@ -62,18 +73,43 @@ final class CorpseGrabState {
             return false;
         }
 
-        this.grabberId = grabber.getUUID();
-        this.grabbedPart = best;
-        return true;
+        selecting=true;
+        try {
+            if (MinecraftForge.EVENT_BUS.post(new CorpseGrabEvent.Pre(corpse,grabber,best))) return false;
+            if (!validPlayer(grabber) || isGrabbed() || playerBusy(grabber)
+                    || !CorpseLabConfig.SERVER.grabEnabled.get()) return false;
+            this.grabberId = grabber.getUUID();
+            this.grabbedPart = best;
+            MinecraftForge.EVENT_BUS.post(new CorpseGrabEvent.Start(corpse,grabberId,grabbedPart));
+            return true;
+        } finally { selecting=false; }
     }
 
-    void release() {
+    private boolean validPlayer(Player player) {
+        return player!=null && corpse.level() instanceof ServerLevel level && level.getServer().isSameThread()
+                && !corpse.isRemoved() && player.level()==level && player.isAlive() && !player.isSpectator();
+    }
+    private boolean playerBusy(Player player) {
+        for (Entity other : ((ServerLevel)corpse.level()).getAllEntities()) {
+            if (other instanceof GrabbableCorpse body && body.isGrabbedBy(player)) return true;
+        }
+        return false;
+    }
+    void release() { release(ReleaseReason.RELEASED); }
+    void release(ReleaseReason reason) {
+        if (!isGrabbed()) return;
+        UUID player=grabberId; int part=grabbedPart;
         this.grabberId = null;
         this.grabbedPart = -1;
+        if (!corpse.level().isClientSide) MinecraftForge.EVENT_BUS.post(new CorpseGrabEvent.Release(corpse,player,part,reason));
     }
 
     boolean isGrabbed() {
         return this.grabberId != null && this.grabbedPart >= 0;
+    }
+
+    Optional<CorpseView.Grab> snapshot() {
+        return isGrabbed() ? Optional.of(new CorpseView.Grab(grabberId, grabbedPart)) : java.util.Optional.empty();
     }
 
     boolean isGrabbedBy(Player player) {
@@ -86,31 +122,36 @@ final class CorpseGrabState {
             return;
         }
         if (!CorpseLabConfig.SERVER.grabEnabled.get()) {
-            release();
+            release(ReleaseReason.DISABLED);
             return;
         }
         if (this.grabbedPart >= bodies.size()) {
-            release();
+            release(ReleaseReason.INVALID_PART);
             return;
         }
 
         Player grabber = level.getPlayerByUUID(this.grabberId);
         if (grabber == null || !grabber.isAlive() || grabber.isSpectator()) {
-            release();
+            release(ReleaseReason.PLAYER_UNAVAILABLE);
             return;
         }
 
-        Vec3 hand = grabber.getEyePosition()
-                .add(grabber.getLookAngle().scale(CorpseLabConfig.SERVER.grabHoldDistance.get()));
+        Vec3 hand = grabber.getEyePosition().add(grabber.getLookAngle().scale(CorpseLabConfig.SERVER.grabHoldDistance.get()));
         RigidBody body = bodies.get(this.grabbedPart);
         Vec3 delta = hand.subtract(body.pos.x, body.pos.y, body.pos.z);
 
         if (delta.length() > CorpseLabConfig.SERVER.grabBreakDistance.get()) {
-            release();
+            release(ReleaseReason.DISTANCE);
             return;
         }
 
-        double strength = CorpseLabConfig.SERVER.grabStrength.get();
+        UUID playerId=grabberId; int part=grabbedPart;
+        var event=new CorpseGrabEvent.Tick(corpse,playerId,part,hand,CorpseLabConfig.SERVER.grabStrength.get());
+        MinecraftForge.EVENT_BUS.post(event);
+        if (!isGrabbed() || !playerId.equals(grabberId) || part!=grabbedPart || corpse.isRemoved()) return;
+        delta=event.getTarget().subtract(body.pos.x,body.pos.y,body.pos.z);
+        if (delta.length()>CorpseLabConfig.SERVER.grabBreakDistance.get()) { release(ReleaseReason.DISTANCE); return; }
+        double strength=event.getStrength();
         body.linVel.set(delta.x * strength, delta.y * strength, delta.z * strength);
     }
 }

@@ -7,7 +7,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class CorpseLabNetwork {
 
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(CorpseLab.MOD_ID, "main"),

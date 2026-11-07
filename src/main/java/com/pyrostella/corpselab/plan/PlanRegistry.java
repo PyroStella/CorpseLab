@@ -56,6 +56,8 @@ public final class PlanRegistry {
 
     /** 服务端：优先取当前实体的实际渲染尺寸，未上报时回退到类型级骨架 */
     public static BodyPlan get(LivingEntity entity) {
+        BodyPlan supplied = com.pyrostella.corpselab.api.CorpseSkeletons.get(entity);
+        if (supplied != null) return supplied;
         BodyPlan instance = INSTANCE_PLANS.get(entity);
         return instance != null ? instance : get(EntityType.getKey(entity.getType()));
     }

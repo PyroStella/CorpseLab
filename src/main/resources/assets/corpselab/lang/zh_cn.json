@@ -85,7 +85,6 @@
   "corpselab.config.display.collisionBoxDisplay.description": "显示附近尸体的碰撞形状，便于调试。",
   "corpselab.config.plan_corpse.mode.articulated": "有骨架",
   "corpselab.config.plan_corpse.mode.free": "无骨架",
-
   "itemGroup.corpselab.icons": "CorpseLab 图标",
   "item.corpselab.red_cross": "红色叉号",
   "item.corpselab.forbidden": "禁止符号",
@@ -99,5 +98,14 @@
   "item.corpselab.green_arrow_left": "绿色左箭头",
   "item.corpselab.green_arrow_right": "绿色右箭头",
   "block.corpselab.monster_skull": "怪物头骨",
-  "block.corpselab.player_skull": "玩家头骨"
+  "block.corpselab.player_skull": "玩家头骨",
+  "corpselab.revival.not_corpse": "目标不是尸体。",
+  "corpselab.revival.server_only": "复活需要在服务端执行。",
+  "corpselab.revival.main_thread": "复活需要在服务端主线程执行。",
+  "corpselab.revival.removed": "尸体已被移除。",
+  "corpselab.revival.unsupported": "这类尸体不支持复活。",
+  "corpselab.revival.already_reviving": "尸体正在复活。",
+  "corpselab.revival.missing_data": "缺少原生物数据。",
+  "corpselab.revival.uuid_in_use": "原生物或乘客的 UUID 仍在使用中。",
+  "corpselab.revival.invalid_entity": "原生物数据无效或类型不支持。"
 }

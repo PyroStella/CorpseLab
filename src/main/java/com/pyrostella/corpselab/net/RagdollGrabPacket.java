@@ -1,7 +1,7 @@
 package com.pyrostella.corpselab.net;
 
+import com.pyrostella.corpselab.api.Corpses;
 import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.entity.GrabbableCorpse;
 import com.pyrostella.corpselab.entity.PlanCorpseEntity;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,8 +10,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 玩家伸手去抓一具身体，或者松手放开
@@ -44,37 +42,24 @@ public final class RagdollGrabPacket {
                 return;
             }
 
+            if (!grabbing) {
+                // 松手不再受搜索范围限制，仍只释放属于当前玩家的抓取
+                for (Entity entity : player.serverLevel().getAllEntities()) {
+                    var view = Corpses.find(entity);
+                    if (view.isPresent() && view.get().grab().filter(
+                            grab -> grab.playerId().equals(player.getUUID())).isPresent()) {
+                        com.pyrostella.corpselab.api.Corpses.releaseGrab(entity);
+                    }
+                }
+                return;
+            }
             double reach = CorpseLabConfig.SERVER.grabReach.get();
             AABB search = player.getBoundingBox().inflate(reach + 2.0D);
-
-            List<Entity> candidates = new ArrayList<>(player.level().getEntities(player, search,
-                    candidate -> candidate instanceof GrabbableCorpse && !(candidate instanceof PlanCorpseEntity)));
-            // 最大块可以远离质心，抓取必须继续按变更前的范围筛选
             for (Entity entity : player.serverLevel().getAllEntities()) {
-                if (entity instanceof PlanCorpseEntity corpse && !corpse.isRemoved()
-                        && corpse.grabSearchBounds().intersects(search)) {
-                    candidates.add(corpse);
-                }
-            }
-            for (Entity entity : candidates) {
-                GrabbableCorpse body = (GrabbableCorpse) entity;
-                if (!grabbing) {
-                    // 放开这名玩家原先抓着的东西，不管它在哪里
-                    if (body.isGrabbedBy(player)) {
-                        body.releaseGrab();
-                    }
-                    continue;
-                }
-
-                if (!CorpseLabConfig.SERVER.grabEnabled.get()) {
-                    return;
-                }
-
-                if (body.tryGrab(player)) {
-                    // 已经静止的身体必须重新开始模拟，才拖得动
-                    body.wakeForGrab();
-                    return;
-                }
+                if (entity instanceof PlanCorpseEntity corpse
+                        ? !corpse.grabSearchBounds().intersects(search)
+                        : !entity.getBoundingBox().intersects(search)) continue;
+                if (Corpses.tryGrab(entity, player)) return;
             }
         });
         ctx.setPacketHandled(true);
