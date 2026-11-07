@@ -2,7 +2,7 @@ package com.pyrostella.corpselab.api.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.pyrostella.corpselab.api.RevivalPose;
-import com.pyrostella.corpselab.plan.ModelPartScanner;
+import com.pyrostella.corpselab.client.model.ModelPartScanner;
 import net.minecraft.client.animation.AnimationDefinition;
 import net.minecraft.client.animation.KeyframeAnimations;
 import net.minecraft.client.model.HierarchicalModel;

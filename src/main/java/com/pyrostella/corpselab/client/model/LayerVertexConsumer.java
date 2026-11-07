@@ -3,10 +3,10 @@ package com.pyrostella.corpselab.client.model;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 /** 通用层只接受成功绑定的 ModelPart 输出，避免独立物品等几何停留在尸体锚点 */
-final class LayerVertexConsumer implements VertexConsumer {
+public final class LayerVertexConsumer implements VertexConsumer {
     private final VertexConsumer delegate;
 
-    LayerVertexConsumer(VertexConsumer delegate) {
+    public LayerVertexConsumer(VertexConsumer delegate) {
         this.delegate = delegate;
     }
 

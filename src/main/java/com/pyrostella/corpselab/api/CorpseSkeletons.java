@@ -1,8 +1,8 @@
 package com.pyrostella.corpselab.api;
 
-import com.pyrostella.corpselab.plan.BodyPlan;
-import com.pyrostella.corpselab.plan.BodyPlanCodec;
-import com.pyrostella.corpselab.util.ExtensionRegistry;
+import com.pyrostella.corpselab.api.model.BodyPlan;
+import com.pyrostella.corpselab.internal.network.BodyPlanCodec;
+import com.pyrostella.corpselab.internal.registry.ExtensionRegistry;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;

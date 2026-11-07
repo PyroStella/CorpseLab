@@ -1,10 +1,12 @@
 package com.pyrostella.corpselab.client.model;
 
+import com.pyrostella.corpselab.api.client.CorpseLayers;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.pyrostella.corpselab.entity.PlanCorpseEntity;
-import com.pyrostella.corpselab.plan.BodyPlan;
-import com.pyrostella.corpselab.plan.ModelPartScanner;
+import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.api.model.BodyPlan;
+import com.pyrostella.corpselab.client.model.ModelPartScanner;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;

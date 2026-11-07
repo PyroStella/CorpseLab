@@ -1,10 +1,12 @@
 package com.pyrostella.corpselab;
 
+import com.pyrostella.corpselab.internal.registry.CorpseLabRegistry;
+
 import com.mojang.logging.LogUtils;
-import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.net.CorpseLabNetwork;
-import com.pyrostella.corpselab.register.CorpseLabBlock;
-import com.pyrostella.corpselab.register.CorpseLabItem;
+import com.pyrostella.corpselab.internal.config.CorpseLabConfig;
+import com.pyrostella.corpselab.internal.network.CorpseLabNetwork;
+import com.pyrostella.corpselab.internal.registry.CorpseLabBlock;
+import com.pyrostella.corpselab.internal.registry.CorpseLabItem;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;

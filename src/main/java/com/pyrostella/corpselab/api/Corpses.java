@@ -1,8 +1,14 @@
 package com.pyrostella.corpselab.api;
 
-import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.entity.*;
-import com.pyrostella.corpselab.plan.*;
+import com.pyrostella.corpselab.internal.config.CorpseLabConfig;
+import com.pyrostella.corpselab.internal.corpse.CorpseEntity;
+import com.pyrostella.corpselab.internal.corpse.CorpseLimbEntity;
+import com.pyrostella.corpselab.internal.corpse.GrabbableCorpse;
+import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.api.model.BodyPlan;
+import com.pyrostella.corpselab.internal.network.BodyPlanCodec;
+import com.pyrostella.corpselab.internal.corpse.CorpseSourceData;
+import com.pyrostella.corpselab.internal.skeleton.PlanRegistry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -187,7 +193,7 @@ public final class Corpses {
             for (int i = 0; i < bodies.size(); i++) {
                 var body = bodies.get(i);
                 String id = entity instanceof PlanCorpseEntity mob ? mob.plan().boxes().get(i).path()
-                        : com.pyrostella.corpselab.ragdoll.BodyPart.values()[i].name().toLowerCase(Locale.ROOT);
+                        : com.pyrostella.corpselab.api.model.BodyPart.values()[i].name().toLowerCase(Locale.ROOT);
                 float scale = entity instanceof PlanCorpseEntity mob ? mob.limbScale(i) : 1;
                 parts.add(new Part(i, id, new Vec3(body.pos.x, body.pos.y, body.pos.z),
                         new Rotation(body.rot.x, body.rot.y, body.rot.z, body.rot.w),

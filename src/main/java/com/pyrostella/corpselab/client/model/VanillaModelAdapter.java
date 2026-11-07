@@ -1,11 +1,14 @@
 package com.pyrostella.corpselab.client.model;
 
+import com.pyrostella.corpselab.api.client.CorpseLayers;
+import com.pyrostella.corpselab.api.client.CorpseModelAdapter;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.pyrostella.corpselab.client.ModelRenderPlan;
-import com.pyrostella.corpselab.plan.BodyPlan;
-import com.pyrostella.corpselab.plan.ModelPartScanner;
-import com.pyrostella.corpselab.entity.PlanCorpseEntity;
+import com.pyrostella.corpselab.client.model.ModelRenderPlan;
+import com.pyrostella.corpselab.api.model.BodyPlan;
+import com.pyrostella.corpselab.client.model.ModelPartScanner;
+import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
@@ -19,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** 原有扫描、实例缩放和独立部件绘制逻辑的默认适配实现 */
-final class VanillaModelAdapter implements CorpseModelAdapter {
+public final class VanillaModelAdapter implements CorpseModelAdapter {
     private static final ResourceLocation FALLBACK = new ResourceLocation("minecraft", "textures/entity/pig/pig.png");
 
     @Override

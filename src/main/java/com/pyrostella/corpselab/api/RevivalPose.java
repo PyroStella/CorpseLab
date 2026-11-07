@@ -1,6 +1,6 @@
 package com.pyrostella.corpselab.api;
 
-import com.pyrostella.corpselab.plan.BodyPlan;
+import com.pyrostella.corpselab.api.model.BodyPlan;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.phys.Vec3;

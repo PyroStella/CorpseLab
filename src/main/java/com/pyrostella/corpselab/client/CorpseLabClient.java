@@ -1,13 +1,17 @@
 package com.pyrostella.corpselab.client;
 
+import com.pyrostella.corpselab.client.input.CorpseLabKeybinds;
+import com.pyrostella.corpselab.client.render.PlanCorpseRenderer;
+import com.pyrostella.corpselab.client.render.RagdollEntityRenderer;
+
 import com.pyrostella.corpselab.CorpseLab;
-import com.pyrostella.corpselab.CorpseLabRegistry;
-import com.pyrostella.corpselab.config.CorpseLabConfig;
-import com.pyrostella.corpselab.entity.CorpseInteraction;
+import com.pyrostella.corpselab.internal.registry.CorpseLabRegistry;
+import com.pyrostella.corpselab.internal.config.CorpseLabConfig;
+import com.pyrostella.corpselab.internal.corpse.CorpseInteraction;
 import net.minecraft.world.InteractionHand;
 import net.minecraftforge.client.event.InputEvent;
-import com.pyrostella.corpselab.net.RagdollGrabPacket;
-import com.pyrostella.corpselab.net.CorpseLabNetwork;
+import com.pyrostella.corpselab.internal.network.RagdollGrabPacket;
+import com.pyrostella.corpselab.internal.network.CorpseLabNetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;

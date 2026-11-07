@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.pyrostella.corpselab.mixin",
-  "plugin": "com.pyrostella.corpselab.mixin.OptionalGeckoMixinPlugin",
+  "plugin": "com.pyrostella.corpselab.compat.geckolib.OptionalGeckoMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "client": ["client.GeckoCubeLayerMixin"],
   "injectors": {"defaultRequire": 1}

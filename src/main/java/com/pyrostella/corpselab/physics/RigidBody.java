@@ -22,8 +22,8 @@ public final class RigidBody {
     public final Vector3d angVel = new Vector3d();
 
     /** 当前子步开始时的状态，用于在位置求解之后反推速度 */
-    final Vector3d prevPos = new Vector3d();
-    final Quaterniond prevRot = new Quaterniond();
+    public final Vector3d prevPos = new Vector3d();
+    public final Quaterniond prevRot = new Quaterniond();
 
     /** 盒的半边长，单位为格 */
     public final Vector3d halfExtents = new Vector3d();
