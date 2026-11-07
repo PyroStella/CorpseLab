@@ -2,7 +2,7 @@ package com.pyrostella.corpselab.compat.geckolib;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.api.client.CorpseRenderContext;
 import net.minecraft.util.Mth;
 import org.joml.Matrix3f;
 import org.joml.Quaternionf;
@@ -19,24 +19,24 @@ public final class GeckoLayerContext implements AutoCloseable {
     private final GeckoLayerContext previous;
     private final Map<GeoCube, PoseStack.Pose> transforms = new IdentityHashMap<>();
 
-    public GeckoLayerContext(PlanCorpseEntity corpse, PoseStack root, GeckoModelScan.Result scan, float tick) {
+    public GeckoLayerContext(CorpseRenderContext corpse, PoseStack root, GeckoModelScan.Result scan, float tick) {
         previous = ACTIVE.get();
         var targets = new java.util.HashMap<String, com.pyrostella.corpselab.api.model.BodyPlan.Box>();
         corpse.plan().boxes().forEach(box -> targets.put(box.path(), box));
         for (var base : scan.plan().boxes()) {
             var actual = targets.get(base.path());
             if (actual == null) continue;
-            float revivalScale = corpse.limbScale(actual.index());
+            float revivalScale = corpse.partScale(actual.index());
             if (revivalScale <= 0) continue;
             var part = scan.parts().get(base.index());
-            var position = corpse.poses().position(actual.index());
+            var position = corpse.partPosition(actual.index());
             PoseStack stack = new PoseStack();
             stack.last().pose().set(root.last().pose());
             stack.last().normal().set(root.last().normal());
-            stack.translate(position.x-Mth.lerp(tick, corpse.xOld, corpse.getX()),
-                    position.y-Mth.lerp(tick, corpse.yOld, corpse.getY()),
-                    position.z-Mth.lerp(tick, corpse.zOld, corpse.getZ()));
-            stack.mulPose(corpse.poses().rotation(actual.index(), new Quaternionf()));
+            stack.translate(position.x-Mth.lerp(tick, corpse.entity().xOld, corpse.entity().getX()),
+                    position.y-Mth.lerp(tick, corpse.entity().yOld, corpse.entity().getY()),
+                    position.z-Mth.lerp(tick, corpse.entity().zOld, corpse.entity().getZ()));
+            stack.mulPose(corpse.partRotation(actual.index(), new Quaternionf()));
             stack.scale(revivalScale,revivalScale,revivalScale);
             stack.scale((float)(actual.hx()/base.hx()), (float)(actual.hy()/base.hy()), (float)(actual.hz()/base.hz()));
             stack.translate(base.cx(), base.cy()-1.501, -base.cz());

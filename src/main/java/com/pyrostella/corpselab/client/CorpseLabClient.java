@@ -64,6 +64,11 @@ public final class CorpseLabClient {
         /** 上一 tick 抓取键是否按下，这样只发送变化 */
         private static boolean grabbing;
 
+        /** 世界或连接结束时清除按键边沿，新世界按当前按键重新上报 */
+        public static void resetGrab() {
+            grabbing = false;
+        }
+
         /**
          * 抓取是按住生效的键，但每 tick 都发太浪费，所以只有按下
          * 和松开这两个变化会走网络

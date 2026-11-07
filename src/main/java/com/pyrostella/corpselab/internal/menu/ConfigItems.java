@@ -1,5 +1,6 @@
 package com.pyrostella.corpselab.internal.menu;
 
+import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.internal.config.ConfigRegistry;
 import com.pyrostella.corpselab.internal.registry.CorpseLabBlock;
 import net.minecraft.ChatFormatting;
@@ -40,11 +41,11 @@ final class ConfigItems {
     }
 
     static Component sectionName(String section) {
-        return Component.translatable("corpselab.config.section." + section);
+        return Component.translatable(CorpseLab.MOD_ID + ".config.section." + section);
     }
 
     static Component settingName(ConfigRegistry.Entry entry) {
-        return Component.translatable("corpselab.config." + entry.path());
+        return Component.translatable(CorpseLab.MOD_ID + ".config." + entry.path());
     }
 
     private static Component value(ConfigRegistry.Entry entry, Object value) {
@@ -52,11 +53,11 @@ final class ConfigItems {
             return Component.translatable(flag ? "options.on" : "options.off");
         }
         if (value instanceof Enum<?> option) {
-            return Component.translatable("corpselab.config." + entry.path()
+            return Component.translatable(CorpseLab.MOD_ID + ".config." + entry.path()
                     + "." + option.name().toLowerCase(Locale.ROOT));
         }
         if (value instanceof List<?> list && list.isEmpty()) {
-            return Component.translatable("corpselab.menu.empty");
+            return Component.translatable(CorpseLab.MOD_ID + ".menu.empty");
         }
         return Component.literal(ConfigRegistry.display(value));
     }
@@ -77,7 +78,7 @@ final class ConfigItems {
     static ItemStack section(String name, int settings) {
         return of(sectionIcon(name),
                 line(sectionName(name), ChatFormatting.WHITE),
-                List.of(line("corpselab.menu.setting_count", ChatFormatting.DARK_GRAY, settings)));
+                List.of(line(CorpseLab.MOD_ID + ".menu.setting_count", ChatFormatting.DARK_GRAY, settings)));
     }
 
     /** 尸体分区改用模组自己的头骨方块当图标；方块要等注册完成才取得，所以不能放进静态表 */
@@ -93,38 +94,38 @@ final class ConfigItems {
                              boolean unavailable, boolean unsaved) {
         boolean changed = !unavailable && !raw.equals(ConfigRegistry.encode(entry.defaultValue()));
         List<Component> lore = new ArrayList<>();
-        lore.add(line("corpselab.config." + entry.path() + ".description", ChatFormatting.GRAY));
+        lore.add(line(CorpseLab.MOD_ID + ".config." + entry.path() + ".description", ChatFormatting.GRAY));
         if (unavailable) {
-            lore.add(line("corpselab.menu.loading", ChatFormatting.GRAY));
+            lore.add(line(CorpseLab.MOD_ID + ".menu.loading", ChatFormatting.GRAY));
         } else {
             Object decoded = ConfigRegistry.decode(entry, raw);
-            lore.add(line("corpselab.menu.current", ChatFormatting.GRAY,
+            lore.add(line(CorpseLab.MOD_ID + ".menu.current", ChatFormatting.GRAY,
                     line(value(entry, decoded == null ? raw : decoded),
                             changed ? ChatFormatting.YELLOW : ChatFormatting.WHITE)));
             if (unsaved) {
-                lore.add(line("corpselab.menu.unsaved", ChatFormatting.YELLOW));
+                lore.add(line(CorpseLab.MOD_ID + ".menu.unsaved", ChatFormatting.YELLOW));
             }
         }
-        lore.add(line("corpselab.menu.default", ChatFormatting.DARK_GRAY,
+        lore.add(line(CorpseLab.MOD_ID + ".menu.default", ChatFormatting.DARK_GRAY,
                 value(entry, entry.defaultValue())));
         if (entry.min() != null) {
-            lore.add(line("corpselab.menu.range", ChatFormatting.DARK_GRAY,
+            lore.add(line(CorpseLab.MOD_ID + ".menu.range", ChatFormatting.DARK_GRAY,
                     ConfigRegistry.display(entry.min()), ConfigRegistry.display(entry.max())));
         }
 
         lore.add(Component.empty());
         if (!editable) {
-            lore.add(line("corpselab.menu.operators_only", ChatFormatting.RED));
+            lore.add(line(CorpseLab.MOD_ID + ".menu.operators_only", ChatFormatting.RED));
         } else if (!unavailable) {
             switch (entry.kind()) {
-                case BOOLEAN -> lore.add(line("corpselab.menu.toggle", ChatFormatting.GRAY));
-                case ENUM -> lore.add(line("corpselab.menu.cycle", ChatFormatting.GRAY));
-                case INTEGER, DECIMAL -> lore.add(line("corpselab.menu.adjust", ChatFormatting.GRAY));
-                default -> lore.add(line("corpselab.menu.edit_file", ChatFormatting.GRAY));
+                case BOOLEAN -> lore.add(line(CorpseLab.MOD_ID + ".menu.toggle", ChatFormatting.GRAY));
+                case ENUM -> lore.add(line(CorpseLab.MOD_ID + ".menu.cycle", ChatFormatting.GRAY));
+                case INTEGER, DECIMAL -> lore.add(line(CorpseLab.MOD_ID + ".menu.adjust", ChatFormatting.GRAY));
+                default -> lore.add(line(CorpseLab.MOD_ID + ".menu.edit_file", ChatFormatting.GRAY));
             }
-            lore.add(line("corpselab.menu.reset", ChatFormatting.DARK_GRAY));
+            lore.add(line(CorpseLab.MOD_ID + ".menu.reset", ChatFormatting.DARK_GRAY));
         }
-        lore.add(line(entry.serverSide() ? "corpselab.menu.scope.world" : "corpselab.menu.scope.client",
+        lore.add(line(entry.serverSide() ? CorpseLab.MOD_ID + ".menu.scope.world" : CorpseLab.MOD_ID + ".menu.scope.client",
                 ChatFormatting.DARK_GRAY));
 
         return of(icon(entry, raw, unavailable),

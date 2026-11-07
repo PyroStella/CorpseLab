@@ -5,7 +5,6 @@ import com.pyrostella.corpselab.internal.skeleton.PlanRegistry;
 
 import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.api.Corpses;
-import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
 import com.pyrostella.corpselab.internal.network.CorpseLabNetwork;
 import com.pyrostella.corpselab.internal.network.PlanPosePacket;
 import com.pyrostella.corpselab.internal.network.PlanSyncPacket;
@@ -55,7 +54,7 @@ public final class PlanCorpseHandler {
                 && event.getEntity() instanceof ServerPlayer player) {
             CorpseLabNetwork.CHANNEL.send(
                     PacketDistributor.PLAYER.with(() -> player),
-                    new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan(), corpse.appearance())
+                    new PlanSyncPacket(corpse.getId(), corpse.sourceType(), corpse.plan(), corpse.appearance(), corpse.sourceEntityId().orElse(null))
             );
             CorpseLabNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PlanPosePacket.of(corpse));
         }

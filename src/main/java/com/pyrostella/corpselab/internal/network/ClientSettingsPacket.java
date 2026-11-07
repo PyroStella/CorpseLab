@@ -36,13 +36,9 @@ public final class ClientSettingsPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ctx.enqueueWork(() -> {
-            ServerPlayer player = ctx.getSender();
-            if (player != null) {
-                ClientSettings.report(player, values);
-            }
-        });
-        ctx.setPacketHandled(true);
+        ServerPlayer player = context.get().getSender();
+        if (player != null) {
+            ClientSettings.report(player, values);
+        }
     }
 }

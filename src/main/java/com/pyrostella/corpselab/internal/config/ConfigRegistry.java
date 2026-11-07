@@ -4,6 +4,7 @@ import com.electronwill.nightconfig.core.UnmodifiableConfig;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -28,53 +29,44 @@ public final class ConfigRegistry {
     /** 一项配置的元数据，菜单据此选择控件 */
     public record Entry(String path, String section, String name, Kind kind, String comment, Object defaultValue, Double min, Double max, boolean serverSide) {}
 
-    private static List<Entry> entries;
+    private record Catalog(List<Entry> entries, Map<String, Entry> paths, Map<String, List<Entry>> sections) { }
 
-    private ConfigRegistry() {}
-
-    public static synchronized List<Entry> entries() {
-        if (entries == null) {
-            List<Entry> found = new ArrayList<>();
-            collect(CorpseLabConfig.SERVER_SPEC, true, found);
-            collect(CorpseLabConfig.CLIENT_SPEC, false, found);
-            entries = List.copyOf(found);
-        }
-        return entries;
+    private static final class CatalogHolder {
+        private static final Catalog VALUE = collect();
     }
+
+    private ConfigRegistry() { }
+
+    public static List<Entry> entries() { return CatalogHolder.VALUE.entries(); }
 
     public static Entry find(String path) {
-        for (Entry entry : entries()) {
-            if (entry.path().equalsIgnoreCase(path)) {
-                return entry;
-            }
+        return path == null ? null : CatalogHolder.VALUE.paths().get(path.toLowerCase(Locale.ROOT));
+    }
+
+    /** 静态元数据只分组一次，声明顺序和不可修改快照保持稳定 */
+    public static Map<String, List<Entry>> bySection() { return CatalogHolder.VALUE.sections(); }
+
+    private static Catalog collect() {
+        List<Entry> found = new ArrayList<>();
+        walk(CorpseLabConfig.SERVER_SPEC.getSpec(), "", true, found);
+        walk(CorpseLabConfig.CLIENT_SPEC.getSpec(), "", false, found);
+        Map<String, Entry> paths = new LinkedHashMap<>();
+        Map<String, List<Entry>> sections = new LinkedHashMap<>();
+        for (Entry entry : found) {
+            paths.put(entry.path().toLowerCase(Locale.ROOT), entry);
+            sections.computeIfAbsent(entry.section(), ignored -> new ArrayList<>()).add(entry);
         }
-        return null;
+        sections.replaceAll((section, entries) -> List.copyOf(entries));
+        return new Catalog(List.copyOf(found), Map.copyOf(paths), Collections.unmodifiableMap(sections));
     }
 
-    /** 按顶层分区分组，保持声明顺序 */
-    public static Map<String, List<Entry>> bySection() {
-        Map<String, List<Entry>> grouped = new LinkedHashMap<>();
-        for (Entry entry : entries()) {
-            grouped.computeIfAbsent(entry.section(), key -> new ArrayList<>()).add(entry);
-        }
-        return grouped;
-    }
-
-    private static void collect(ForgeConfigSpec spec, boolean serverSide, List<Entry> out) {
-        walk(spec.getSpec(), "", spec, serverSide, out);
-    }
-
-    private static void walk(UnmodifiableConfig config, String prefix,
-                             ForgeConfigSpec spec, boolean serverSide, List<Entry> out) {
+    private static void walk(UnmodifiableConfig config, String prefix, boolean serverSide, List<Entry> out) {
         for (Map.Entry<String, Object> child : config.valueMap().entrySet()) {
             String path = prefix.isEmpty() ? child.getKey() : prefix + "." + child.getKey();
             Object value = child.getValue();
-
             if (value instanceof UnmodifiableConfig nested) {
-                walk(nested, path, spec, serverSide, out);
-                continue;
-            }
-            if (value instanceof ForgeConfigSpec.ValueSpec valueSpec) {
+                walk(nested, path, serverSide, out);
+            } else if (value instanceof ForgeConfigSpec.ValueSpec valueSpec) {
                 out.add(describe(path, valueSpec, serverSide));
             }
         }

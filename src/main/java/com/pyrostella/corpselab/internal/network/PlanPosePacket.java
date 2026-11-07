@@ -9,7 +9,6 @@ import com.pyrostella.corpselab.client.sync.PlanCorpseClientHandler;
 import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
 import com.pyrostella.corpselab.physics.RigidBody;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
@@ -107,18 +106,8 @@ public final class PlanPosePacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> PlanCorpseClientHandler.acceptPose(
-                        this.entityId, this.anchorX, this.anchorY, this.anchorZ,
-                        this.offsets, this.rotations,this.scales,this.regrowing)));
-        context.get().setPacketHandled(true);
-    }
-
-    /** 客户端查找实体用 */
-    public static PlanCorpseEntity find(Minecraft minecraft, int entityId) {
-        if (minecraft.level == null) {
-            return null;
-        }
-        return minecraft.level.getEntity(entityId) instanceof PlanCorpseEntity corpse ? corpse : null;
+                        entityId, anchorX, anchorY, anchorZ, offsets, rotations, scales, regrowing));
     }
 }

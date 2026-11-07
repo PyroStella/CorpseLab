@@ -21,8 +21,6 @@ public final class ClientSettingsRequestPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> ClientSettingsHandler::report));
-        context.get().setPacketHandled(true);
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientSettingsHandler::report);
     }
 }

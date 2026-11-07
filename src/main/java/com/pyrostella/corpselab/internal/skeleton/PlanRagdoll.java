@@ -49,6 +49,7 @@ public final class PlanRagdoll {
     private final BodyPlan plan;
     private final PhysicsWorld world = new PhysicsWorld();
     private final RigidBody[] bodies;
+    private final List<RigidBody> orderedBodies;
     private final boolean articulated;
 
     /**
@@ -106,6 +107,8 @@ public final class PlanRagdoll {
             this.bodies[box.index()] = body;
             this.world.bodies.add(body);
         }
+
+        this.orderedBodies = List.of(this.bodies);
 
         if (this.articulated) {
             buildJoints(pose, centres, orientation);
@@ -477,7 +480,7 @@ public final class PlanRagdoll {
     }
 
     public List<RigidBody> bodies() {
-        return List.of(this.bodies);
+        return this.orderedBodies;
     }
 
     public RigidBody body(int index) {
@@ -583,9 +586,17 @@ public final class PlanRagdoll {
         for (int i = 0; i < parts.size(); i++) {
             var part = parts.getCompound(i); var body = this.bodies[i];
             body.pos.set(part.getDouble("X"),part.getDouble("Y"),part.getDouble("Z"));
-            body.rot.set(part.getDouble("QX"),part.getDouble("QY"),part.getDouble("QZ"),part.getDouble("QW")).normalize();
+            body.rot.set(part.getDouble("QX"),part.getDouble("QY"),part.getDouble("QZ"),part.getDouble("QW"));
+            double rotationLength = body.rot.lengthSquared();
+            if (!Double.isFinite(rotationLength) || rotationLength <= 0) {
+                throw new IllegalArgumentException("刚体存档旋转无效");
+            }
+            body.rot.normalize();
             body.linVel.set(part.getDouble("VX"),part.getDouble("VY"),part.getDouble("VZ"));
             body.angVel.set(part.getDouble("WX"),part.getDouble("WY"),part.getDouble("WZ"));
+            if (!body.pos.isFinite() || !body.linVel.isFinite() || !body.angVel.isFinite()) {
+                throw new IllegalArgumentException("刚体存档位置或速度无效");
+            }
         }
         var broken = tag.getList("Broken",1); int index = 0;
         for (Constraint constraint : this.world.constraints) if (constraint instanceof SphericalJoint joint) {

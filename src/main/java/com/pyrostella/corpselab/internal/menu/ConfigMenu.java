@@ -1,5 +1,6 @@
 package com.pyrostella.corpselab.internal.menu;
 
+import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.internal.config.ConfigRegistry;
 import com.pyrostella.corpselab.internal.config.ClientSettings;
 import com.pyrostella.corpselab.internal.registry.CorpseLabItem;
@@ -81,7 +82,7 @@ public final class ConfigMenu extends ChestMenu {
             ConfigMenu menu = new ConfigMenu(id, inventory, container, player);
             menu.rebuild();
             return menu;
-        }, Component.translatable("corpselab.menu.title")));
+        }, Component.translatable(CorpseLab.MOD_ID + ".menu.title")));
 
         // 客户端自己的设置存在客户端上，只能去问它。菜单先立刻打开
         // 等答复到了再把那几行填上
@@ -147,30 +148,30 @@ public final class ConfigMenu extends ChestMenu {
     private void buildNavigation() {
         if (section != null) {
             display.setItem(SLOT_BACK, ConfigItems.nav(CorpseLabItem.RED_ARROW_LEFT.get(),
-                    Component.translatable("corpselab.menu.back"), ChatFormatting.WHITE));
+                    Component.translatable(CorpseLab.MOD_ID + ".menu.back"), ChatFormatting.WHITE));
             display.setItem(SLOT_INFO, ConfigItems.nav(Items.BOOK,
                     ConfigItems.sectionName(section), ChatFormatting.YELLOW,
-                    Component.translatable("corpselab.menu.page", page + 1, pageCount())));
+                    Component.translatable(CorpseLab.MOD_ID + ".menu.page", page + 1, pageCount())));
             if (page > 0) {
                 display.setItem(SLOT_PREVIOUS, ConfigItems.nav(Items.SPECTRAL_ARROW,
-                        Component.translatable("corpselab.menu.previous"), ChatFormatting.WHITE));
+                        Component.translatable(CorpseLab.MOD_ID + ".menu.previous"), ChatFormatting.WHITE));
             }
             if (page < pageCount() - 1) {
                 display.setItem(SLOT_NEXT, ConfigItems.nav(Items.SPECTRAL_ARROW,
-                        Component.translatable("corpselab.menu.next"), ChatFormatting.WHITE));
+                        Component.translatable(CorpseLab.MOD_ID + ".menu.next"), ChatFormatting.WHITE));
             }
         } else {
             display.setItem(SLOT_INFO, ConfigItems.nav(Items.BOOK,
-                    Component.translatable("corpselab.menu.title"), ChatFormatting.YELLOW,
+                    Component.translatable(CorpseLab.MOD_ID + ".menu.title"), ChatFormatting.YELLOW,
                     Component.translatable(viewer.hasPermissions(PERMISSION_LEVEL)
-                            ? "corpselab.menu.access.admin" : "corpselab.menu.access.player")));
+                            ? CorpseLab.MOD_ID + ".menu.access.admin" : CorpseLab.MOD_ID + ".menu.access.player")));
         }
 
         // 右下角固定是「丢弃 / 保存」，任何一页都能提交，也都能放弃
         display.setItem(SLOT_CANCEL, ConfigItems.nav(CorpseLabItem.RED_CROSS.get(),
-                Component.translatable("corpselab.menu.cancel"), ChatFormatting.RED));
+                Component.translatable(CorpseLab.MOD_ID + ".menu.cancel"), ChatFormatting.RED));
         display.setItem(SLOT_CONFIRM, ConfigItems.nav(CorpseLabItem.GREEN_CHECK.get(),
-                Component.translatable("corpselab.menu.confirm"), ChatFormatting.GREEN));
+                Component.translatable(CorpseLab.MOD_ID + ".menu.confirm"), ChatFormatting.GREEN));
     }
 
     // ---- 取值 ------------------------------------------------------------------------
@@ -204,6 +205,11 @@ public final class ConfigMenu extends ChestMenu {
         for (Map.Entry<ConfigRegistry.Entry, String> staged : pending.entrySet()) {
             ConfigRegistry.Entry entry = staged.getKey();
             String raw = staged.getValue();
+            // 暂存后管理员权限可能已被撤销，真正提交前必须再次检查
+            if (!mayEdit(entry)) {
+                viewer.sendSystemMessage(ConfigItems.line(CorpseLab.MOD_ID + ".menu.operators_only", ChatFormatting.RED));
+                continue;
+            }
 
             if (entry.serverSide()) {
                 Object value = ConfigRegistry.decode(entry, raw);
@@ -212,7 +218,7 @@ public final class ConfigMenu extends ChestMenu {
                 }
                 String error = ConfigRegistry.set(entry, value);
                 if (error != null) {
-                    viewer.sendSystemMessage(ConfigItems.line("corpselab.menu.save_failed",
+                    viewer.sendSystemMessage(ConfigItems.line(CorpseLab.MOD_ID + ".menu.save_failed",
                             ChatFormatting.RED, ConfigItems.settingName(entry)));
                     com.pyrostella.corpselab.CorpseLab.LOGGER.warn("Could not save {}: {}", entry.path(), error);
                 }

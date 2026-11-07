@@ -1,5 +1,6 @@
 package com.pyrostella.corpselab.internal.corpse;
 
+import com.pyrostella.corpselab.CorpseLab;
 import com.pyrostella.corpselab.internal.menu.CorpseMenu;
 
 import com.pyrostella.corpselab.internal.registry.CorpseLabRegistry;
@@ -7,13 +8,14 @@ import com.pyrostella.corpselab.internal.config.CorpseLabConfig;
 import com.pyrostella.corpselab.internal.corpse.CorpseSourceData;
 import com.pyrostella.corpselab.internal.skeleton.LimbPose;
 import com.pyrostella.corpselab.internal.skeleton.RagdollSkeleton;
+import net.minecraft.core.NonNullList;
+import com.pyrostella.corpselab.api.event.CorpseRemovalEvent.Cause;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
@@ -22,11 +24,9 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3d;
 
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -81,6 +81,8 @@ public class CorpseEntity extends SettlingBody {
      * 空尸体，并在第一个 tick 就消失
      */
     private boolean everHadItems;
+    private int equipmentSyncDepth;
+    private boolean equipmentSyncPending;
 
     public CorpseEntity(EntityType<? extends CorpseEntity> type, Level level) {
         super(type, level);
@@ -105,6 +107,10 @@ public class CorpseEntity extends SettlingBody {
         if (level().isClientSide) {
             return;
         }
+        if (equipmentSyncDepth > 0) {
+            equipmentSyncPending = true;
+            return;
+        }
         entityData.set(WORN_FEET, contents.getItem(ARMOUR_START).copy());
         entityData.set(WORN_LEGS, contents.getItem(ARMOUR_START + 1).copy());
         entityData.set(WORN_CHEST, contents.getItem(ARMOUR_START + 2).copy());
@@ -113,6 +119,19 @@ public class CorpseEntity extends SettlingBody {
         entityData.set(HELD_MAIN, mainHandSlot >= 0 && mainHandSlot < ARMOUR_START
                 ? contents.getItem(mainHandSlot).copy()
                 : ItemStack.EMPTY);
+    }
+
+    /** 批量搬运只合并装备同步，不抑制容器的外部监听与失败回退。 */
+    private void mutateContents(Runnable operation) {
+        equipmentSyncDepth++;
+        try {
+            operation.run();
+        } finally {
+            if (--equipmentSyncDepth == 0 && equipmentSyncPending) {
+                equipmentSyncPending = false;
+                syncEquipment();
+            }
+        }
     }
 
     /** 在玩家刚刚死亡的位置创建尸体，并带上他们当时的姿态与运动状态 */
@@ -124,7 +143,7 @@ public class CorpseEntity extends SettlingBody {
         Vec3 feet = player.position();
         corpse.setPos(feet.x, feet.y, feet.z);
         corpse.setOwnerId(player.getUUID());
-        corpse.setOwnerName(player.getGameProfile().getName());
+        corpse.ownerName = player.getGameProfile().getName();
 
         RagdollSkeleton skeleton = new RagdollSkeleton(feet.x, feet.y, feet.z,
                 RagdollSkeleton.facingFromYaw(player.yBodyRot),
@@ -151,26 +170,24 @@ public class CorpseEntity extends SettlingBody {
         return ownerName;
     }
 
-    public void setOwnerName(String name) {
-        this.ownerName = name;
-    }
-
     /** 把死亡玩家的整个背包搬进尸体里 */
     public void takeInventoryFrom(Player player) {
-        for (int i = 0; i < player.getInventory().items.size() && i < ARMOUR_START; i++) {
-            contents.setItem(i, player.getInventory().items.get(i).copy());
-            player.getInventory().items.set(i, ItemStack.EMPTY);
-        }
-        for (int i = 0; i < player.getInventory().armor.size(); i++) {
-            contents.setItem(ARMOUR_START + i, player.getInventory().armor.get(i).copy());
-            player.getInventory().armor.set(i, ItemStack.EMPTY);
-        }
-        contents.setItem(OFFHAND_SLOT, player.getInventory().offhand.get(0).copy());
-        player.getInventory().offhand.set(0, ItemStack.EMPTY);
+        mutateContents(() -> {
+            for (int i = 0; i < player.getInventory().items.size() && i < ARMOUR_START; i++) {
+                contents.setItem(i, player.getInventory().items.get(i).copy());
+                player.getInventory().items.set(i, ItemStack.EMPTY);
+            }
+            for (int i = 0; i < player.getInventory().armor.size(); i++) {
+                contents.setItem(ARMOUR_START + i, player.getInventory().armor.get(i).copy());
+                player.getInventory().armor.set(i, ItemStack.EMPTY);
+            }
+            contents.setItem(OFFHAND_SLOT, player.getInventory().offhand.get(0).copy());
+            player.getInventory().offhand.set(0, ItemStack.EMPTY);
 
-        mainHandSlot = player.getInventory().selected;
-        everHadItems = !contents.isEmpty();
-        syncEquipment();
+            mainHandSlot = player.getInventory().selected;
+            everHadItems = !contents.isEmpty();
+            syncEquipment();
+        });
     }
 
     public boolean isEmpty() {
@@ -180,7 +197,7 @@ public class CorpseEntity extends SettlingBody {
     @Override
     protected void checkLifetime() {
         if (everHadItems && isEmpty() && CorpseLabConfig.SERVER.corpseDespawnWhenEmpty.get()) {
-            discard();
+            CorpseLifecycle.discard(this, Cause.EMPTY);
             return;
         }
 
@@ -188,19 +205,21 @@ public class CorpseEntity extends SettlingBody {
         // 零表示永不超时，因此尸体只有在被搜刮后才会移除
         if (lifetime > 0 && age() >= lifetime) {
             dropEverything();
-            discard();
+            CorpseLifecycle.discard(this, Cause.EXPIRED);
         }
     }
 
     /** 把剩下的东西撒出来，让超时消失的尸体不会悄悄吞掉别人的物品 */
     private void dropEverything() {
-        for (int i = 0; i < contents.getContainerSize(); i++) {
-            ItemStack stack = contents.getItem(i);
-            if (!stack.isEmpty()) {
-                spawnAtLocation(stack);
-                contents.setItem(i, ItemStack.EMPTY);
+        mutateContents(() -> {
+            for (int i = 0; i < contents.getContainerSize(); i++) {
+                ItemStack stack = contents.getItem(i);
+                if (!stack.isEmpty()) {
+                    spawnAtLocation(stack);
+                    contents.setItem(i, ItemStack.EMPTY);
+                }
             }
-        }
+        });
     }
 
     @Override
@@ -225,50 +244,32 @@ public class CorpseEntity extends SettlingBody {
      * 每件物品则放回它来自的槽位，前提是该槽位仍然空着
      */
     public void equipOnto(Player player) {
-        for (int i = 0; i < player.getInventory().armor.size(); i++) {
-            moveInto(player, ARMOUR_START + i, () -> player.getInventory().armor, i);
-        }
-        moveInto(player, OFFHAND_SLOT, () -> player.getInventory().offhand, 0);
-
-        for (int i = 0; i < ARMOUR_START; i++) {
-            ItemStack stack = contents.getItem(i);
-            if (stack.isEmpty()) {
-                continue;
+        mutateContents(() -> {
+            var inventory = player.getInventory();
+            for (int i = 0; i < inventory.armor.size(); i++) {
+                moveInto(player, ARMOUR_START + i, inventory.armor, i);
             }
-            if (player.getInventory().items.get(i).isEmpty()) {
-                player.getInventory().items.set(i, stack);
-                contents.setItem(i, ItemStack.EMPTY);
-            } else if (player.getInventory().add(stack)) {
-                contents.setItem(i, ItemStack.EMPTY);
+            moveInto(player, OFFHAND_SLOT, inventory.offhand, 0);
+            for (int i = 0; i < ARMOUR_START; i++) {
+                moveInto(player, i, inventory.items, i);
             }
-        }
-
+        });
         checkLifetime();
     }
 
-    private void moveInto(Player player, int slot,
-                          java.util.function.Supplier<net.minecraft.core.NonNullList<ItemStack>> target,
-                          int index) {
-        ItemStack stack = contents.getItem(slot);
-        if (stack.isEmpty()) {
-            return;
-        }
-        if (target.get().get(index).isEmpty()) {
-            target.get().set(index, stack);
-            contents.setItem(slot, ItemStack.EMPTY);
+    private void moveInto(Player player, int corpseSlot, NonNullList<ItemStack> destination, int index) {
+        ItemStack stack = contents.getItem(corpseSlot);
+        if (stack.isEmpty()) return;
+        if (destination.get(index).isEmpty()) {
+            destination.set(index, stack);
+            contents.setItem(corpseSlot, ItemStack.EMPTY);
         } else if (player.getInventory().add(stack)) {
-            contents.setItem(slot, ItemStack.EMPTY);
+            contents.setItem(corpseSlot, ItemStack.EMPTY);
         }
     }
 
     public Component displayTitle() {
-        return Component.translatable("corpselab.container.corpse", ownerName);
-    }
-
-    /** 尸体会持久保留：玩家重新登录时必须还能找到自己的尸体 */
-    @Override
-    public boolean shouldBeSaved() {
-        return true;
+        return Component.translatable(CorpseLab.MOD_ID + ".container.corpse", ownerName);
     }
 
     @Override
@@ -277,20 +278,21 @@ public class CorpseEntity extends SettlingBody {
         ownerName = tag.getString("OwnerName");
         setAge(tag.getInt("Age"));
         everHadItems = tag.getBoolean("HadItems");
-        mainHandSlot = tag.contains("MainHandSlot") ? tag.getInt("MainHandSlot") : -1;
+        mainHandSlot = tag.getInt("MainHandSlot");
 
         if (tag.hasUUID("Owner")) {
             setOwnerId(tag.getUUID("Owner"));
         }
 
-        ListTag items = tag.getList("Items", 10);
-        for (int i = 0; i < items.size(); i++) {
-            CompoundTag entry = items.getCompound(i);
-            int slot = entry.getByte("Slot") & 255;
-            if (slot < contents.getContainerSize()) {
-                contents.setItem(slot, ItemStack.of(entry));
+        mutateContents(() -> {
+            contents.clearContent();
+            ListTag items = tag.getList("Items", 10);
+            for (int i = 0; i < items.size(); i++) {
+                CompoundTag entry = items.getCompound(i);
+                int slot = entry.getByte("Slot") & 255;
+                if (slot < contents.getContainerSize()) contents.setItem(slot, ItemStack.of(entry));
             }
-        }
+        });
 
         RagdollSkeleton skeleton = new RagdollSkeleton(getX(), getY(), getZ(), 0.0D,
                 false, LimbPose.STANDING);
@@ -301,7 +303,6 @@ public class CorpseEntity extends SettlingBody {
         BodyPose.read(tag, skeleton);
 
         setFrozen(true);
-        syncEquipment();
     }
 
     @Override
@@ -330,28 +331,6 @@ public class CorpseEntity extends SettlingBody {
         tag.putInt("MainHandSlot", mainHandSlot);
 
         BodyPose.write(tag, skeleton());
-    }
-
-    /**
-     * 包住整个身体的盒子，而不是注册的 0.6 立方体
-     *
-     * <p>entity 位于质心上，但玩家瞄准的是能看见的四肢，这些四肢会
-     * 向两侧伸出一格左右。用默认的包围盒会让可见身体的大部分
-     * 无法被点击
-     */
-    @Override
-    protected AABB makeBoundingBox() {
-        return new AABB(getX() - 0.7D, getY() - 0.5D, getZ() - 0.7D,
-                getX() + 0.7D, getY() + 0.7D, getZ() + 0.7D);
-    }
-
-    /** 让容器在尸体以其他方式被摧毁时掉出内容物 */
-    public Container container() {
-        return contents;
-    }
-
-    public Optional<UUID> owner() {
-        return Optional.ofNullable(getOwnerId());
     }
 
     /**

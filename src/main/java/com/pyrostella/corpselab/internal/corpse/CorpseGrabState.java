@@ -80,6 +80,7 @@ final class CorpseGrabState {
                     || !CorpseLabConfig.SERVER.grabEnabled.get()) return false;
             this.grabberId = grabber.getUUID();
             this.grabbedPart = best;
+            CorpseGrabIndex.track(grabber, corpse);
             MinecraftForge.EVENT_BUS.post(new CorpseGrabEvent.Start(corpse,grabberId,grabbedPart));
             return true;
         } finally { selecting=false; }
@@ -90,15 +91,13 @@ final class CorpseGrabState {
                 && !corpse.isRemoved() && player.level()==level && player.isAlive() && !player.isSpectator();
     }
     private boolean playerBusy(Player player) {
-        for (Entity other : ((ServerLevel)corpse.level()).getAllEntities()) {
-            if (other instanceof GrabbableCorpse body && body.isGrabbedBy(player)) return true;
-        }
-        return false;
+        return CorpseGrabIndex.find(player).isPresent();
     }
     void release() { release(ReleaseReason.RELEASED); }
     void release(ReleaseReason reason) {
         if (!isGrabbed()) return;
         UUID player=grabberId; int part=grabbedPart;
+        CorpseGrabIndex.release(corpse, player);
         this.grabberId = null;
         this.grabbedPart = -1;
         if (!corpse.level().isClientSide) MinecraftForge.EVENT_BUS.post(new CorpseGrabEvent.Release(corpse,player,part,reason));

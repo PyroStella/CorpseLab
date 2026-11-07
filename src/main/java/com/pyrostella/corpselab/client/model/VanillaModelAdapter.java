@@ -1,6 +1,5 @@
 package com.pyrostella.corpselab.client.model;
 
-import com.pyrostella.corpselab.api.client.CorpseLayers;
 import com.pyrostella.corpselab.api.client.CorpseModelAdapter;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -8,10 +7,9 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.pyrostella.corpselab.client.model.ModelRenderPlan;
 import com.pyrostella.corpselab.api.model.BodyPlan;
 import com.pyrostella.corpselab.client.model.ModelPartScanner;
-import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.api.client.CorpseRenderContext;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
@@ -72,7 +70,7 @@ public final class VanillaModelAdapter implements CorpseModelAdapter {
         }
         return new Binding() {
           @Override
-          public PartRenderer prepare(PlanCorpseEntity corpse, MultiBufferSource buffers, float partialTick) {
+          public PartRenderer prepare(CorpseRenderContext corpse, MultiBufferSource buffers, float partialTick) {
             ResourceLocation texture = texture(livingRenderer, probe);
             VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
             return (box, stack, packedLight) -> {
@@ -85,14 +83,14 @@ public final class VanillaModelAdapter implements CorpseModelAdapter {
                 stack.scale(scale(box.hx(), modelBox.hx()), scale(box.hy(), modelBox.hy()),
                         scale(box.hz(), modelBox.hz()));
                 stack.translate(-ref.cx(), -ref.cy(), -ref.cz());
-                renderPartAlone(stack, consumer, ref.part(), packedLight);
+                ModelPartGeometry.renderCubes(stack, consumer, ref.part(), packedLight);
             };
           }
 
           @Override
-          public void renderLayers(PlanCorpseEntity corpse, PoseStack stack, MultiBufferSource buffers,
+          public void renderLayers(CorpseRenderContext corpse, PoseStack stack, MultiBufferSource buffers,
                                    int light, float partialTick) {
-              CorpseLayers.render(livingRenderer, probe, corpse, stack, buffers, light, partialTick);
+              CorpseLayerRenderer.render(livingRenderer, probe, corpse, stack, buffers, light, partialTick);
           }
         };
     }
@@ -110,8 +108,4 @@ public final class VanillaModelAdapter implements CorpseModelAdapter {
         return model > 1.0E-6D ? (float) (actual / model) : 1.0F;
     }
 
-    /** 只编译本部件的方块，既不递归子节点，也不修改共享模型 */
-    private static void renderPartAlone(PoseStack stack, VertexConsumer consumer, ModelPart part, int light) {
-        ModelPartGeometry.renderCubes(stack, consumer, part, light);
-    }
 }

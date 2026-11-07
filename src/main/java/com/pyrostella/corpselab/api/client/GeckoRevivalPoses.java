@@ -1,6 +1,4 @@
-package com.pyrostella.corpselab.compat.geckolib;
-
-import com.pyrostella.corpselab.api.client.VanillaRevivalPoses;
+package com.pyrostella.corpselab.api.client;
 
 import com.eliotlash.mclib.math.Constant;
 import com.pyrostella.corpselab.api.RevivalPose;

@@ -47,7 +47,8 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
         poses.sample(partialTick);
         entity.updateClientBounds();
 
-        CorpseModelAdapter.PartRenderer parts = binding.prepare(entity, bufferSource, partialTick);
+        var context = new PlanCorpseRenderContext(entity);
+        CorpseModelAdapter.PartRenderer parts = binding.prepare(context, bufferSource, partialTick);
         double renderX = Mth.lerp(partialTick, entity.xOld, entity.getX());
         double renderY = Mth.lerp(partialTick, entity.yOld, entity.getY());
         double renderZ = Mth.lerp(partialTick, entity.zOld, entity.getZ());
@@ -70,7 +71,7 @@ public class PlanCorpseRenderer extends EntityRenderer<PlanCorpseEntity> {
                 poseStack.popPose();
             }
         }
-        binding.renderLayers(entity, poseStack, bufferSource, packedLight, partialTick);
+        binding.renderLayers(context, poseStack, bufferSource, packedLight, partialTick);
     }
 
     @Override

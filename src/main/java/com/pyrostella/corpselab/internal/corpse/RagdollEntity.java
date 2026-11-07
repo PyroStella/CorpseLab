@@ -102,13 +102,12 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
         this.limbs.publish();
     }
 
-    @Override
-    public void remove(RemovalReason reason) {
-        super.remove(reason);
+    void finishRemoval(RemovalReason reason) {
         this.grab.release(reason.shouldDestroy()
                 ? com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason.REMOVED
                 : com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason.UNLOADED);
         this.limbs.clear();
+        CorpseLifecycle.onRemoved(this, reason);
     }
 
     @Override

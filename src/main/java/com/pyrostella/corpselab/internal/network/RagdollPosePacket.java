@@ -98,11 +98,8 @@ public final class RagdollPosePacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        // 经由 DistExecutor 转发，这样纯客户端的处理类
-        // 就永远不会在专用服务端上被加载
-        context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
                 () -> () -> ClientPoseHandler.accept(
-                        entityId, anchorX, anchorY, anchorZ, positions, rotations)));
-        context.get().setPacketHandled(true);
+                        entityId, anchorX, anchorY, anchorZ, positions, rotations));
     }
 }

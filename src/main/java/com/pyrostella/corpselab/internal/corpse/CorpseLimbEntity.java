@@ -1,7 +1,7 @@
 package com.pyrostella.corpselab.internal.corpse;
 
 import com.pyrostella.corpselab.CorpseLab;
-import com.pyrostella.corpselab.api.environment.LimbEffects;
+import com.pyrostella.corpselab.internal.environment.LimbEffectSession;
 import com.pyrostella.corpselab.physics.RigidBody;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.damagesource.DamageSource;
@@ -19,7 +19,7 @@ public final class CorpseLimbEntity extends Entity {
     private Entity owner;
     private RigidBody body;
     private Vec3 publishedVelocity = Vec3.ZERO;
-    private LimbEffects.Session effects;
+    private LimbEffectSession effects;
     private boolean environmentChanged;
 
     public CorpseLimbEntity(EntityType<?> type, Level level) {
@@ -30,7 +30,7 @@ public final class CorpseLimbEntity extends Entity {
     public void attach(Entity owner, RigidBody body) {
         this.owner = owner;
         this.body = body;
-        this.effects = LimbEffects.create(this, body);
+        this.effects = new LimbEffectSession(this, body);
         this.publishPose();
     }
 

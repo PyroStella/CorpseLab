@@ -50,7 +50,7 @@ public final class CorpseLabCommand {
             if (!(entity instanceof PlanCorpseEntity corpse)) continue;
             if (Corpses.revive(corpse)) started++;
             else Corpses.revivalProblem(corpse).ifPresent(problem -> context.getSource().sendFailure(
-                    Component.translatable("corpselab.revival." + problem.name().toLowerCase(java.util.Locale.ROOT))));
+                    Component.translatable(CorpseLab.MOD_ID + ".revival." + problem.name().toLowerCase(java.util.Locale.ROOT))));
         }
         int count = started;
         if (count > 0) context.getSource().sendSuccess(() -> Component.literal("已开始复活 "+count+" 具生物尸体"),true);
@@ -63,7 +63,7 @@ public final class CorpseLabCommand {
         try {
             player = context.getSource().getPlayerOrException();
         } catch (Exception notAPlayer) {
-            context.getSource().sendFailure(Component.translatable("corpselab.menu.players_only"));
+            context.getSource().sendFailure(Component.translatable(CorpseLab.MOD_ID + ".menu.players_only"));
             return 0;
         }
 

@@ -11,6 +11,7 @@
   },
   "mixins": [
     "common.CorpseDeathMixin",
-    "common.PlayerCorpseDeathMixin"
+    "common.PlayerCorpseDeathMixin",
+    "common.CorpseRemovalMixin"
   ]
 }

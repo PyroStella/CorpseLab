@@ -3,12 +3,12 @@ package com.pyrostella.corpselab.internal.network;
 import java.util.function.Supplier;
 
 import com.pyrostella.corpselab.api.model.BodyPlan;
-import com.pyrostella.corpselab.internal.network.BodyPlanCodec;
 import com.pyrostella.corpselab.internal.skeleton.PlanRegistry;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * 客户端 → 服务端：上报某个生物类型的骨架
@@ -37,7 +37,8 @@ public final class PlanSubmitPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> PlanRegistry.accept(this.entityType, this.plan));
-        context.get().setPacketHandled(true);
+        if (context.get().getSender() != null && ForgeRegistries.ENTITY_TYPES.containsKey(this.entityType)) {
+            PlanRegistry.accept(this.entityType, this.plan);
+        }
     }
 }

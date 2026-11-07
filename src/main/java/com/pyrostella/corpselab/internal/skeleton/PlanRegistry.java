@@ -1,7 +1,9 @@
 package com.pyrostella.corpselab.internal.skeleton;
 
 import com.pyrostella.corpselab.api.model.BodyPlan;
-import com.pyrostella.corpselab.internal.network.BodyPlanCodec;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.Collections;
 import java.util.Map;
@@ -22,6 +24,7 @@ import net.minecraft.world.entity.LivingEntity;
  *
  * <p>尺寸来自客户端模型，接收时校验数值和拓扑完整性，不使用固定部件数量或尺寸倍率上限。</p>
  */
+@Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class PlanRegistry {
 
     private static final Map<ResourceLocation, BodyPlan> PLANS = new ConcurrentHashMap<>();
@@ -32,7 +35,7 @@ public final class PlanRegistry {
 
     /** 服务端：接收上报 */
     public static void accept(ResourceLocation type, BodyPlan plan) {
-        if (plan.boxCount() == 0 || !BodyPlanCodec.valid(plan)) {
+        if (plan.boxCount() == 0 || !plan.isValid()) {
             CorpseLab.LOGGER.warn("拒绝骨架上报 {}：盒子数量 {}", type, plan.boxCount());
             return;
         }
@@ -51,7 +54,7 @@ public final class PlanRegistry {
     /** 服务端：记录当前实体经渲染器缩放后的实际骨架 */
     public static void acceptInstance(LivingEntity entity, BodyPlan plan) {
         BodyPlan base = PLANS.get(EntityType.getKey(entity.getType()));
-        if (!BodyPlanCodec.valid(plan) || !matchesBase(base, plan)) {
+        if (!plan.isValid() || !matchesBase(base, plan)) {
             return;
         }
         INSTANCE_PLANS.put(entity, plan);
@@ -78,6 +81,13 @@ public final class PlanRegistry {
             }
         }
         return true;
+    }
+
+    /** 发现数据属于本次服务器会话，模组注册的提供器由各自注册器管理 */
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        PLANS.clear();
+        INSTANCE_PLANS.clear();
     }
 
     public static int size() {

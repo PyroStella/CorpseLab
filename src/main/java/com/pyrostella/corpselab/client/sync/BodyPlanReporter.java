@@ -1,7 +1,5 @@
 package com.pyrostella.corpselab.client.sync;
 
-import com.pyrostella.corpselab.client.model.PlanModelCache;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -22,7 +20,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -35,14 +32,8 @@ import net.minecraftforge.event.TickEvent;
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID, value = Dist.CLIENT)
 public final class BodyPlanReporter {
 
-    /** 本次连接中已经尝试扫描过的类型 */
-    private static final Set<ResourceLocation> SCANNED = new HashSet<>();
-
-    /** 本次连接中已经成功上报的类型 */
+    /** 本次连接中已经发送基础骨架的类型，不代表服务端确认创建 */
     private static final Set<ResourceLocation> REPORTED = new HashSet<>();
-
-    /** 已经成功上报，并且至少在活着时渲染过的类型 */
-    private static final Set<ResourceLocation> REPORTED_ALIVE = new HashSet<>();
 
     /** 类型级原始模型扫描，不包含具体实体的缩放 */
     private static final Map<ResourceLocation, ScanCache> SCANS = new HashMap<>();
@@ -108,15 +99,10 @@ public final class BodyPlanReporter {
             SCANS.put(id, cached);
         }
 
-        if (SCANNED.add(id)) {
+        if (REPORTED.add(id)) {
             CorpseLabNetwork.CHANNEL.sendToServer(new PlanSubmitPacket(id, cached.scan().plan()));
-            REPORTED.add(id);
             CorpseLab.LOGGER.info("上报骨架 {}：{} 盒 / {} 关节",
                     id, cached.scan().plan().boxCount(), cached.scan().plan().jointCount());
-        }
-
-        if (entity.deathTime <= 0 && REPORTED.contains(id)) {
-            REPORTED_ALIVE.add(id);
         }
 
         InstanceReport previous = INSTANCES.get(entity.getId());
@@ -155,20 +141,16 @@ public final class BodyPlanReporter {
         return Math.abs(first - second) > PLAN_EPSILON;
     }
 
-    /** 这种生物在死亡前已经具备生成通用尸体的必要条件 */
-    public static boolean expectsCorpse(EntityType<?> type) {
-        return REPORTED_ALIVE.contains(EntityType.getKey(type));
-    }
-
-    /** 服务端骨架缓存不会跨连接保留，客户端记录也必须随连接重置 */
-    @SubscribeEvent
-    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-        SCANNED.clear();
-        REPORTED.clear();
-        REPORTED_ALIVE.clear();
+    /** 模型资源或 level 改变后重采样，不重置本连接已发送的类型 */
+    static void clearModels() {
         SCANS.clear();
         INSTANCES.clear();
-        PlanModelCache.clear();
+    }
+
+    /** 连接结束后，新服务器必须重新收到基础骨架 */
+    static void clearConnection() {
+        REPORTED.clear();
+        clearModels();
     }
 
     private record ScanCache(Object model, CorpseModelAdapter adapter, CorpseModelAdapter.Scan scan) {

@@ -33,8 +33,6 @@ public final class ClientSettingsApplyPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> ClientSettingsHandler.apply(path, value)));
-        context.get().setPacketHandled(true);
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientSettingsHandler.apply(path, value));
     }
 }

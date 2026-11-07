@@ -3,6 +3,7 @@ package com.pyrostella.corpselab.api.client;
 import com.pyrostella.corpselab.client.model.VanillaModelAdapter;
 
 import com.pyrostella.corpselab.internal.registry.ExtensionRegistry;
+import com.pyrostella.corpselab.api.Registration;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -25,7 +26,7 @@ public final class CorpseModelAdapters {
     }
 
     /** 应在客户端初始化阶段、连接世界之前注册，避免改变服务端已接收的类型骨架 */
-    public static ExtensionRegistry.Registration register(ResourceLocation id, int priority,
+    public static Registration register(ResourceLocation id, int priority,
                                                           CorpseModelAdapter adapter) {
         return REGISTRY.register(id.toString(), priority, adapter);
     }

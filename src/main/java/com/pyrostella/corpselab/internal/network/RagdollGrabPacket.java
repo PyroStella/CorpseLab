@@ -3,6 +3,7 @@ package com.pyrostella.corpselab.internal.network;
 import com.pyrostella.corpselab.api.Corpses;
 import com.pyrostella.corpselab.internal.config.CorpseLabConfig;
 import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.internal.corpse.CorpseGrabIndex;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -35,33 +36,22 @@ public final class RagdollGrabPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        NetworkEvent.Context ctx = context.get();
-        ctx.enqueueWork(() -> {
-            ServerPlayer player = ctx.getSender();
-            if (player == null) {
-                return;
-            }
-
-            if (!grabbing) {
-                // 松手不再受搜索范围限制，仍只释放属于当前玩家的抓取
-                for (Entity entity : player.serverLevel().getAllEntities()) {
-                    var view = Corpses.find(entity);
-                    if (view.isPresent() && view.get().grab().filter(
-                            grab -> grab.playerId().equals(player.getUUID())).isPresent()) {
-                        com.pyrostella.corpselab.api.Corpses.releaseGrab(entity);
-                    }
-                }
-                return;
-            }
-            double reach = CorpseLabConfig.SERVER.grabReach.get();
-            AABB search = player.getBoundingBox().inflate(reach + 2.0D);
-            for (Entity entity : player.serverLevel().getAllEntities()) {
-                if (entity instanceof PlanCorpseEntity corpse
-                        ? !corpse.grabSearchBounds().intersects(search)
-                        : !entity.getBoundingBox().intersects(search)) continue;
-                if (Corpses.tryGrab(entity, player)) return;
-            }
-        });
-        ctx.setPacketHandled(true);
+        ServerPlayer player = context.get().getSender();
+        if (player == null) {
+            return;
+        }
+        if (!grabbing) {
+            // 松手不受搜索范围限制，只释放属于当前玩家的抓取
+            CorpseGrabIndex.find(player).ifPresent(Corpses::releaseGrab);
+            return;
+        }
+        double reach = CorpseLabConfig.SERVER.grabReach.get();
+        AABB search = player.getBoundingBox().inflate(reach + 2.0D);
+        for (Entity entity : player.serverLevel().getAllEntities()) {
+            if (entity instanceof PlanCorpseEntity corpse
+                    ? !corpse.grabSearchBounds().intersects(search)
+                    : !entity.getBoundingBox().intersects(search)) continue;
+            if (Corpses.tryGrab(entity, player)) return;
+        }
     }
 }

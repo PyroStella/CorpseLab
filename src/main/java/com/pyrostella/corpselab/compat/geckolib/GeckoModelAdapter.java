@@ -2,7 +2,7 @@ package com.pyrostella.corpselab.compat.geckolib;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.pyrostella.corpselab.api.client.CorpseModelAdapter;
-import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.api.client.CorpseRenderContext;
 import com.pyrostella.corpselab.api.model.BodyPlan;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -63,7 +63,7 @@ public final class GeckoModelAdapter implements CorpseModelAdapter {
         for (BodyPlan.Box box : scan.plan().boxes()) paths.put(box.path(), box.index());
         return new Binding() {
             @Override
-            public void renderLayers(PlanCorpseEntity corpse, PoseStack stack, MultiBufferSource buffers,
+            public void renderLayers(CorpseRenderContext corpse, PoseStack stack, MultiBufferSource buffers,
                                      int light, float partialTick) {
                 var type = geo.getRenderType(animatable, geo.getTextureLocation(animatable), buffers, partialTick);
                 if (type == null || geo.getRenderLayers().isEmpty()) return;
@@ -78,7 +78,7 @@ public final class GeckoModelAdapter implements CorpseModelAdapter {
                 });
             }
             @Override
-            public PartRenderer prepare(PlanCorpseEntity corpse, MultiBufferSource buffers, float partialTick) {
+            public PartRenderer prepare(CorpseRenderContext corpse, MultiBufferSource buffers, float partialTick) {
                 var texture = geo.getTextureLocation(animatable);
                 var renderType = geo.getRenderType(animatable, texture, buffers, partialTick);
                 return (box, stack, light) -> GeckoRendererState.withEntity(geo, probe, () -> {

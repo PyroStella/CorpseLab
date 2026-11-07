@@ -1,6 +1,9 @@
 package com.pyrostella.corpselab.client.sync;
 
 import org.joml.Quaternionf;
+import org.jetbrains.annotations.Nullable;
+import java.util.UUID;
+import com.pyrostella.corpselab.client.render.CorpseLabDeathRender;
 
 import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
 import com.pyrostella.corpselab.api.model.BodyPlan;
@@ -15,12 +18,14 @@ public final class PlanCorpseClientHandler {
     private PlanCorpseClientHandler() {
     }
 
-    public static void acceptPlan(int entityId, ResourceLocation sourceType, BodyPlan plan, CompoundTag appearance) {
+    public static void acceptPlan(int entityId, ResourceLocation sourceType, BodyPlan plan, CompoundTag appearance,
+                                  @Nullable UUID sourceEntityId) {
         PlanCorpseEntity corpse = find(entityId);
         if (corpse != null) {
             corpse.setSourceType(sourceType);
             corpse.setAppearance(appearance);
             corpse.setPlan(plan);
+            CorpseLabDeathRender.confirm(sourceEntityId, corpse);
         }
     }
 

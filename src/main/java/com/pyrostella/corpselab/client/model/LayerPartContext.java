@@ -1,10 +1,9 @@
 package com.pyrostella.corpselab.client.model;
 
-import com.pyrostella.corpselab.api.client.CorpseLayers;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
+import com.pyrostella.corpselab.api.client.CorpseRenderContext;
 import com.pyrostella.corpselab.api.model.BodyPlan;
 import com.pyrostella.corpselab.client.model.ModelPartScanner;
 import net.minecraft.client.model.EntityModel;
@@ -20,7 +19,7 @@ import java.util.Map;
 public final class LayerPartContext implements AutoCloseable {
     private static final ThreadLocal<LayerPartContext> ACTIVE = new ThreadLocal<>();
     private final LayerPartContext previous;
-    private final PlanCorpseEntity corpse;
+    private final CorpseRenderContext corpse;
     private final PoseStack.Pose root;
     private final ModelPartScanner.ScanResult base;
     private final Map<String, BodyPlan.Box> actual = new HashMap<>();
@@ -29,7 +28,7 @@ public final class LayerPartContext implements AutoCloseable {
     private final float partialTick;
     private boolean compiling;
 
-    public LayerPartContext(PlanCorpseEntity corpse, PoseStack stack,
+    public LayerPartContext(CorpseRenderContext corpse, PoseStack stack,
                             ModelPartScanner.ScanResult base, float partialTick) {
         this.previous = ACTIVE.get();
         this.corpse = corpse;
@@ -42,7 +41,7 @@ public final class LayerPartContext implements AutoCloseable {
     }
 
     public void registerModel(EntityModel<?> model) {
-        ModelPartScanner.ScanResult scan = CorpseLayers.scanRest(model);
+        ModelPartScanner.ScanResult scan = CorpseLayerRenderer.scanRest(model);
         for (BodyPlan.Box source : scan.plan().boxes()) {
             ModelPart part = scan.parts().get(source.index()).part();
             if (this.transforms.containsKey(part)) {
@@ -56,17 +55,17 @@ public final class LayerPartContext implements AutoCloseable {
             if (original == null) {
                 continue;
             }
-            float revivalScale = this.corpse.limbScale(target.index());
+            float revivalScale = this.corpse.partScale(target.index());
             if (revivalScale <= 0) continue;
             var ref = this.base.parts().get(original.index());
-            var position = this.corpse.poses().position(target.index());
+            var position = this.corpse.partPosition(target.index());
             PoseStack transform = new PoseStack();
             transform.last().pose().set(this.root.pose());
             transform.last().normal().set(this.root.normal());
-            transform.translate(position.x - Mth.lerp(this.partialTick, this.corpse.xOld, this.corpse.getX()),
-                    position.y - Mth.lerp(this.partialTick, this.corpse.yOld, this.corpse.getY()),
-                    position.z - Mth.lerp(this.partialTick, this.corpse.zOld, this.corpse.getZ()));
-            transform.mulPose(this.corpse.poses().rotation(target.index(), new Quaternionf()));
+            transform.translate(position.x - Mth.lerp(this.partialTick, this.corpse.entity().xOld, this.corpse.entity().getX()),
+                    position.y - Mth.lerp(this.partialTick, this.corpse.entity().yOld, this.corpse.entity().getY()),
+                    position.z - Mth.lerp(this.partialTick, this.corpse.entity().zOld, this.corpse.entity().getZ()));
+            transform.mulPose(this.corpse.partRotation(target.index(), new Quaternionf()));
             transform.scale(revivalScale,revivalScale,revivalScale);
             transform.scale(-1, -1, 1);
             transform.scale(scale(target.hx(), original.hx()), scale(target.hy(), original.hy()),

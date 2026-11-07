@@ -84,24 +84,52 @@ public final class CorpseRevival {
     private CorpseRevival(CompoundTag tag, int count) {
         this.id = tag.getUUID("Attempt");
         this.base = tag.getInt("Base");
-        this.duration = Math.max(1,tag.getInt("Duration"));
-        this.elapsed = Math.max(0,Math.min(duration,tag.getInt("Elapsed")));
+        this.duration = tag.getInt("Duration");
+        this.elapsed = tag.getInt("Elapsed");
+        if (count < 1 || base < 0 || base >= count || duration < 1 || elapsed < 0 || elapsed > duration) {
+            throw new IllegalArgumentException("复活存档的基准、时长或进度无效");
+        }
         this.yaw = tag.getFloat("Yaw");
-        this.origin = new Vec3(tag.getDouble("X"),tag.getDouble("Y"),tag.getDouble("Z"));
+        Vector3d savedOrigin = readVector(tag, "");
+        this.origin = new Vec3(savedOrigin.x, savedOrigin.y, savedOrigin.z);
+        if (!Float.isFinite(this.yaw)) throw new IllegalArgumentException("复活朝向无效");
         ListTag parts = tag.getList("Parts",10);
         if (parts.size() != count) throw new IllegalArgumentException("复活姿态部件数量不符");
         this.starts = new Vector3d[count]; this.rotations = new Quaterniond[count]; this.returnsToBody = new boolean[count];
         this.targets = new Vector3d[count]; this.targetRotations = new Quaterniond[count]; this.targetScales = new float[count];
         for (int i = 0; i < count; i++) {
             var part = parts.getCompound(i);
-            starts[i] = new Vector3d(part.getDouble("X"),part.getDouble("Y"),part.getDouble("Z"));
-            rotations[i] = new Quaterniond(part.getDouble("QX"),part.getDouble("QY"),part.getDouble("QZ"),part.getDouble("QW")).normalize();
+            starts[i] = readVector(part, "");
+            rotations[i] = readRotation(part, "Q");
             returnsToBody[i] = part.getBoolean("ReturnToBody");
             if (!part.contains("TX")) throw new IllegalArgumentException("复活存档缺少目标姿态");
-            targets[i] = new Vector3d(part.getDouble("TX"),part.getDouble("TY"),part.getDouble("TZ"));
-            targetRotations[i] = new Quaterniond(part.getDouble("TQX"),part.getDouble("TQY"),part.getDouble("TQZ"),part.getDouble("TQW")).normalize();
+            targets[i] = readVector(part, "T");
+            targetRotations[i] = readRotation(part, "TQ");
             targetScales[i] = part.getFloat("TargetScale");
+            if (!part.contains("TargetScale") || !Float.isFinite(targetScales[i]) || targetScales[i] < 0) {
+                throw new IllegalArgumentException("复活目标缩放无效");
+            }
         }
+    }
+
+    private static Vector3d readVector(CompoundTag tag, String prefix) {
+        Vector3d value = new Vector3d(tag.getDouble(prefix + "X"), tag.getDouble(prefix + "Y"),
+                tag.getDouble(prefix + "Z"));
+        if (!tag.contains(prefix + "X") || !tag.contains(prefix + "Y") || !tag.contains(prefix + "Z")
+                || !Double.isFinite(value.x) || !Double.isFinite(value.y) || !Double.isFinite(value.z)) {
+            throw new IllegalArgumentException("复活存档坐标无效");
+        }
+        return value;
+    }
+
+    private static Quaterniond readRotation(CompoundTag tag, String prefix) {
+        Quaterniond value = new Quaterniond(tag.getDouble(prefix + "X"), tag.getDouble(prefix + "Y"),
+                tag.getDouble(prefix + "Z"), tag.getDouble(prefix + "W"));
+        double lengthSquared = value.lengthSquared();
+        if (!Double.isFinite(lengthSquared) || lengthSquared <= 0) {
+            throw new IllegalArgumentException("复活存档旋转无效");
+        }
+        return value.normalize();
     }
 
     public static CorpseRevival load(CompoundTag tag,int count) { return new CorpseRevival(tag,count); }

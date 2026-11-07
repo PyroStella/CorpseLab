@@ -1,5 +1,7 @@
 package com.pyrostella.corpselab.internal.registry;
 
+import com.pyrostella.corpselab.api.Registration;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -8,12 +10,6 @@ import java.util.Objects;
 /** 发布不可变快照，遍历期间注册或撤销扩展不会破坏当前调用 */
 public final class ExtensionRegistry<T> {
     public record Entry<T>(String id, int priority, T value) {
-    }
-
-    @FunctionalInterface
-    public interface Registration extends AutoCloseable {
-        @Override
-        void close();
     }
 
     private volatile List<Entry<T>> entries = List.of();

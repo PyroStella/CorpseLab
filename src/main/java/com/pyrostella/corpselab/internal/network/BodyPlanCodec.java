@@ -26,7 +26,7 @@ public final class BodyPlanCodec {
     }
 
     public static void write(FriendlyByteBuf buf, BodyPlan plan) {
-        if (!valid(plan)) throw new IllegalArgumentException("骨架数据无效");
+        if (!plan.isValid()) throw new IllegalArgumentException("骨架数据无效");
         buf.writeInt(MAGIC);
 
         buf.writeVarInt(plan.boxes().size());
@@ -76,46 +76,7 @@ public final class BodyPlanCodec {
         }
 
         BodyPlan plan = new BodyPlan(List.copyOf(boxes), List.copyOf(joints));
-        if (!valid(plan)) throw new DecoderException("骨架数据无效");
+        if (!plan.isValid()) throw new DecoderException("骨架数据无效");
         return plan;
-    }
-    /** 保留数值和拓扑完整性检查，不按部件条数、层级深度或尺寸倍率拒绝模型 */
-    public static boolean valid(BodyPlan plan) {
-        for (int i = 0; i < plan.boxCount(); i++) {
-            BodyPlan.Box box = plan.boxes().get(i);
-            if (box.index() != i || box.path() == null || !validBox(box)) return false;
-        }
-        int[] components = new int[plan.boxCount()];
-        boolean[] hasParent = new boolean[plan.boxCount()];
-        for (int i = 0; i < components.length; i++) components[i] = i;
-        for (BodyPlan.Joint joint : plan.joints()) {
-            int child = joint.child(), parent = joint.parent();
-            if (child < 0 || parent < 0 || child >= components.length || parent >= components.length
-                    || child == parent || hasParent[child]) return false;
-            hasParent[child] = true;
-            int a = root(components, child), b = root(components, parent);
-            if (a == b) return false;
-            components[a] = b;
-        }
-        return true;
-    }
-
-    private static int root(int[] components, int index) {
-        while (components[index] != index) {
-            components[index] = components[components[index]];
-            index = components[index];
-        }
-        return index;
-    }
-
-    private static boolean validBox(BodyPlan.Box box) {
-        return finite(box.cx()) && finite(box.cy()) && finite(box.cz())
-                && finite(box.hx()) && finite(box.hy()) && finite(box.hz())
-                && finite(box.mass()) && finite(box.px()) && finite(box.py()) && finite(box.pz())
-                && box.hx() >= 0 && box.hy() >= 0 && box.hz() >= 0 && (float)box.mass() > 0;
-    }
-
-    private static boolean finite(double value) {
-        return Double.isFinite(value) && Float.isFinite((float)value);
     }
 }

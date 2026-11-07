@@ -1,7 +1,6 @@
 package com.pyrostella.corpselab.api.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.pyrostella.corpselab.internal.corpse.PlanCorpseEntity;
 import com.pyrostella.corpselab.api.model.BodyPlan;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -35,10 +34,10 @@ public interface CorpseModelAdapter {
 
     interface Binding {
         /** 每具尸体绘制前调用一次，适配器可自行选择贴图、渲染类型及缓冲 */
-        PartRenderer prepare(PlanCorpseEntity corpse, MultiBufferSource buffers, float partialTick);
+        PartRenderer prepare(CorpseRenderContext corpse, MultiBufferSource buffers, float partialTick);
 
         /** 附加层可一次绘制全部肢体，默认无附加层 */
-        default void renderLayers(PlanCorpseEntity corpse, PoseStack stack, MultiBufferSource buffers,
+        default void renderLayers(CorpseRenderContext corpse, PoseStack stack, MultiBufferSource buffers,
                                   int packedLight, float partialTick) {
         }
     }
