@@ -1,0 +1,111 @@
+package com.pyrostella.corpselab.client.model;
+
+import com.pyrostella.corpselab.api.client.CorpseModelAdapter;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.pyrostella.corpselab.client.model.ModelRenderPlan;
+import com.pyrostella.corpselab.api.model.BodyPlan;
+import com.pyrostella.corpselab.client.model.ModelPartScanner;
+import com.pyrostella.corpselab.api.client.CorpseRenderContext;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/** 原有扫描、实例缩放和独立部件绘制逻辑的默认适配实现 */
+public final class VanillaModelAdapter implements CorpseModelAdapter {
+    private static final ResourceLocation FALLBACK = new ResourceLocation("minecraft", "textures/entity/pig/pig.png");
+
+    @Override
+    public boolean supports(LivingEntity entity, EntityRenderer<?> renderer) {
+        return renderer instanceof LivingEntityRenderer<?, ?>;
+    }
+
+    @Override
+    public boolean usesLivingRenderEvent() {
+        return true;
+    }
+
+    @Override
+    public Object modelKey(LivingEntity entity, EntityRenderer<?> renderer) {
+        return ((LivingEntityRenderer<?, ?>) renderer).getModel();
+    }
+
+    @Override
+    public Scan scan(LivingEntity entity, EntityRenderer<?> renderer) {
+        EntityModel<?> model = ((LivingEntityRenderer<?, ?>) renderer).getModel();
+        ModelPartScanner.ScanResult result = ModelPartScanner.scanDetailed(model);
+        return new Scan() {
+            @Override
+            public BodyPlan plan() {
+                return result.plan();
+            }
+
+            @Override
+            public BodyPlan capture(LivingEntity source, EntityRenderer<?> sourceRenderer, float partialTick) {
+                return ModelRenderPlan.capture(result, model,
+                        (LivingEntityRenderer<?, ?>) sourceRenderer, source, partialTick);
+            }
+        };
+    }
+
+    @Override
+    public Binding bind(LivingEntity probe, EntityRenderer<?> renderer) {
+        LivingEntityRenderer<?, ?> livingRenderer = (LivingEntityRenderer<?, ?>) renderer;
+        // 完整部件表不受共享活体模型当前可见性的影响
+        ModelPartScanner.ScanResult scan = ModelPartScanner.scanDetailed(livingRenderer.getModel(), true);
+        if (scan.parts().isEmpty()) {
+            return null;
+        }
+        Map<String, BodyPlan.Box> byPath = new HashMap<>();
+        for (BodyPlan.Box box : scan.plan().boxes()) {
+            byPath.put(box.path(), box);
+        }
+        return new Binding() {
+          @Override
+          public PartRenderer prepare(CorpseRenderContext corpse, MultiBufferSource buffers, float partialTick) {
+            ResourceLocation texture = texture(livingRenderer, probe);
+            VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
+            return (box, stack, packedLight) -> {
+                BodyPlan.Box modelBox = byPath.get(box.path());
+                if (modelBox == null) {
+                    return;
+                }
+                ModelPartScanner.PartRef ref = scan.parts().get(modelBox.index());
+                stack.scale(-1.0F, -1.0F, 1.0F);
+                stack.scale(scale(box.hx(), modelBox.hx()), scale(box.hy(), modelBox.hy()),
+                        scale(box.hz(), modelBox.hz()));
+                stack.translate(-ref.cx(), -ref.cy(), -ref.cz());
+                ModelPartGeometry.renderCubes(stack, consumer, ref.part(), packedLight);
+            };
+          }
+
+          @Override
+          public void renderLayers(CorpseRenderContext corpse, PoseStack stack, MultiBufferSource buffers,
+                                   int light, float partialTick) {
+              CorpseLayerRenderer.render(livingRenderer, probe, corpse, stack, buffers, light, partialTick);
+          }
+        };
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static ResourceLocation texture(LivingEntityRenderer renderer, LivingEntity probe) {
+        try {
+            return renderer.getTextureLocation(probe);
+        } catch (Exception failure) {
+            return FALLBACK;
+        }
+    }
+
+    private static float scale(double actual, double model) {
+        return model > 1.0E-6D ? (float) (actual / model) : 1.0F;
+    }
+
+}

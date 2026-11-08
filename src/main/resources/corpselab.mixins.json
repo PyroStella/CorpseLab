@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.pyrostella.corpselab.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "client.ModelPartLayerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "common.CorpseDeathMixin",
+    "common.PlayerCorpseDeathMixin"
+  ]
+}

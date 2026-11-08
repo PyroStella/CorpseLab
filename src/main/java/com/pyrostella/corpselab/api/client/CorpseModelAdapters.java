@@ -1,0 +1,48 @@
+package com.pyrostella.corpselab.api.client;
+
+import com.pyrostella.corpselab.client.model.VanillaModelAdapter;
+
+import com.pyrostella.corpselab.internal.registry.ExtensionRegistry;
+import com.pyrostella.corpselab.api.Registration;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import org.jetbrains.annotations.Nullable;
+
+/** 仅客户端使用，选择优先级最高的匹配实现；第三方适配器通常使用正优先级 */
+public final class CorpseModelAdapters {
+    private static final ExtensionRegistry<CorpseModelAdapter> REGISTRY = new ExtensionRegistry<>();
+
+    static {
+        register(new ResourceLocation(com.pyrostella.corpselab.CorpseLab.MOD_ID, "vanilla"), 0, new VanillaModelAdapter());
+        // 1.19.2 只有 GeckoLib 3，与高版本用的 GeckoLib 4 API 不兼容，这里暂不挂 geckolib 适配器
+    }
+
+    private CorpseModelAdapters() {
+    }
+
+    /** 应在客户端初始化阶段、连接世界之前注册，避免改变服务端已接收的类型骨架 */
+    public static Registration register(ResourceLocation id, int priority,
+                                                          CorpseModelAdapter adapter) {
+        return REGISTRY.register(id.toString(), priority, adapter);
+    }
+
+    @Nullable
+    public static CorpseModelAdapter select(LivingEntity entity, EntityRenderer<?> renderer) {
+        for (var entry : REGISTRY.entries()) {
+            if (entry.value().supports(entity, renderer)) {
+                return entry.value();
+            }
+        }
+        return null;
+    }
+
+    /** 快照引用在注册或撤销时变化，供缓存判断绑定是否失效 */
+    public static Object version() {
+        return REGISTRY.entries();
+    }
+
+    public static boolean needsDiscovery() {
+        return REGISTRY.entries().stream().anyMatch(entry -> !entry.value().usesLivingRenderEvent());
+    }
+}

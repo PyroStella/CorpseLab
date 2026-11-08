@@ -1,0 +1,33 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+run-gametest
+
+# Files from Forge MDK
+forge*changelog.txt
+
+# workbuddy
+.workbuddy/
+
+# 本地测试源码与资源
+/src/gameTest/
+/src/test/
