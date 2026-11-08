@@ -12,8 +12,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** 同时列出开发名称与 Forge 运行时名称，不依赖额外映射文件 */
 @Mixin(ModelPart.class)
 public abstract class ModelPartLayerMixin {
-    @Inject(method = {"compile", "m_171309_"}, at = @At("HEAD"), cancellable = true, remap = false, require = 1)
-    private void corpselab$renderLayerPart(PoseStack.Pose pose, VertexConsumer consumer, int light, int overlay,
+    @Inject(method = {
+            "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;IIFFFF)V",
+            "m_104306_(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;IIFFFF)V"
+    }, at = @At("HEAD"), cancellable = true, remap = false, require = 1)
+    private void corpselab$renderLayerPart(PoseStack poseStack, VertexConsumer consumer, int light, int overlay,
                                           float red, float green, float blue, float alpha, CallbackInfo callback) {
         if (LayerPartContext.redirect((ModelPart) (Object) this, consumer, light, overlay, red, green, blue, alpha)) {
             callback.cancel();
