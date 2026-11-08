@@ -56,7 +56,7 @@
   "corpselab.config.triggers.explosion.launchMultiplier": "Explosion force",
   "corpselab.config.triggers.explosion.launchMultiplier.description": "Launch force when an explosion kills a mob.",
   "corpselab.config.corpse.enabled": "Leave player bodies",
-  "corpselab.config.corpse.enabled.description": "Keep items in a body; otherwise drop them.",
+  "corpselab.config.corpse.enabled.description": "Create a corpse when a player dies. Item transfer is controlled separately.",
   "corpselab.config.corpse.lifetimeTicks": "Body lifetime",
   "corpselab.config.corpse.lifetimeTicks.description": "Ticks until removal. 20 ticks = 1 second.",
   "corpselab.config.corpse.despawnWhenEmpty": "Remove empty bodies",
@@ -107,5 +107,10 @@
   "corpselab.revival.already_reviving": "The corpse is already reviving.",
   "corpselab.revival.missing_data": "The original entity data is missing.",
   "corpselab.revival.uuid_in_use": "The original entity or passenger UUID is in use.",
-  "corpselab.revival.invalid_entity": "The original entity data is invalid or unsupported."
+  "corpselab.revival.invalid_entity": "The original entity data is invalid or unsupported.",
+  "corpselab.config.corpse.transferItems": "Transfer player items",
+  "corpselab.config.corpse.transferItems.description": "Move player death items into the corpse. Disable to keep normal drops. keepInventory takes priority.",
+  "corpselab.corpse.menu.transfer_all": "Click to transfer all items",
+  "corpselab.corpse.menu.delete_all": "Click to delete all items",
+  "corpselab.corpse.menu.delete_confirm": "Click again to confirm"
 }

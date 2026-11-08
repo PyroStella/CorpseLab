@@ -56,7 +56,7 @@
   "corpselab.config.triggers.explosion.launchMultiplier": "爆炸击飞力度",
   "corpselab.config.triggers.explosion.launchMultiplier.description": "爆炸致死时尸体被向外击飞的力度。",
   "corpselab.config.corpse.enabled": "保留玩家尸体",
-  "corpselab.config.corpse.enabled.description": "死亡后物品留在尸体中，关闭则直接掉落。",
+  "corpselab.config.corpse.enabled.description": "玩家死亡时是否生成尸体，物品是否转入尸体由“转移玩家物品”控制。",
   "corpselab.config.corpse.lifetimeTicks": "尸体存留时间",
   "corpselab.config.corpse.lifetimeTicks.description": "自动消失前的 tick 数，20 tick = 1 秒。",
   "corpselab.config.corpse.despawnWhenEmpty": "移除空尸体",
@@ -107,5 +107,10 @@
   "corpselab.revival.already_reviving": "尸体正在复活。",
   "corpselab.revival.missing_data": "缺少原生物数据。",
   "corpselab.revival.uuid_in_use": "原生物或乘客的 UUID 仍在使用中。",
-  "corpselab.revival.invalid_entity": "原生物数据无效或类型不支持。"
+  "corpselab.revival.invalid_entity": "原生物数据无效或类型不支持。",
+  "corpselab.config.corpse.transferItems": "转移玩家物品",
+  "corpselab.config.corpse.transferItems.description": "死亡时把玩家物品转入尸体，关闭则按原版掉落；keepInventory 始终优先。",
+  "corpselab.corpse.menu.transfer_all": "点击取回全部物品",
+  "corpselab.corpse.menu.delete_all": "点击删除全部物品",
+  "corpselab.corpse.menu.delete_confirm": "再次点击确认删除"
 }

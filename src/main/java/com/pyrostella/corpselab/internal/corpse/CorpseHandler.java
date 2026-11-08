@@ -1,7 +1,6 @@
 package com.pyrostella.corpselab.internal.corpse;
 
 import com.pyrostella.corpselab.CorpseLab;
-import com.pyrostella.corpselab.api.Corpses;
 import com.pyrostella.corpselab.internal.config.CorpseLabConfig;
 import com.pyrostella.corpselab.internal.corpse.CorpseEntity;
 import com.pyrostella.corpselab.internal.corpse.SettlingBody;
@@ -13,25 +12,15 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/** 玩家确认死亡后的尸体创建与姿态补发 */
+/** 玩家尸体的初速度计算与跟踪同步 */
 @Mod.EventBusSubscriber(modid = CorpseLab.MOD_ID)
 public final class CorpseHandler {
 
     private CorpseHandler() {
     }
 
-    /** 确认死亡之后、原版掉落之前调用，取消死亡不会执行 */
-    public static void onDeath(ServerPlayer player, net.minecraft.world.damagesource.DamageSource damage) {
-        if (!CorpseLabConfig.SERVER.corpseEnabled.get()) {
-            return;
-        }
-        if (player.level.isClientSide) {
-            return;
-        }
-        if (player.isSpectator()) {
-            return;
-        }
-
+    /** 保存死亡时的三轴速度及爆炸外推，供事件准备尸体时使用 */
+    static Vec3 deathVelocity(ServerPlayer player, net.minecraft.world.damagesource.DamageSource damage) {
         // 继承死亡时的三轴物理速度，保留下落、移动和已施加的击退
         Vec3 momentum = CorpseSourceData.velocity(player);
 
@@ -46,7 +35,7 @@ public final class CorpseHandler {
                         CorpseLabConfig.SERVER.corpseExplosionLaunchMultiplier.get() * 2.0D));
             }
         }
-        Corpses.create(player, momentum);
+        return momentum;
     }
 
     /**

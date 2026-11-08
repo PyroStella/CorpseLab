@@ -19,7 +19,7 @@ public final class Corpses {
         return CorpseViews.find(entity);
     }
 
-    /** 不杀死来源；玩家遵守 keepInventory，入场失败不搬动物品 */
+    /** 不杀死来源；玩家遵守物品转移配置和 keepInventory，入场失败不搬动物品 */
     public static Optional<CorpseView> create(LivingEntity source) {
         return CorpseCreation.create(source);
     }

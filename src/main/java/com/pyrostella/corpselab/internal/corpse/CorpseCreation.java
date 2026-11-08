@@ -25,7 +25,7 @@ import com.pyrostella.corpselab.api.CorpseView;
 public final class CorpseCreation {
     private CorpseCreation() { }
 
-    /** 创建尸体快照，不杀死源实体；玩家物品遵守 keepInventory，失败返回空 */
+    /** 创建尸体快照，不杀死源实体；玩家物品遵守转移配置和 keepInventory，失败返回空 */
     public static Optional<CorpseView> create(LivingEntity source) {
         return source == null ? Optional.empty() : create(source, CorpseSourceData.velocity(source));
     }
@@ -45,44 +45,50 @@ public final class CorpseCreation {
             if (plan != null || player.isSpectator() || !CorpseLabConfig.SERVER.corpseEnabled.get())
                 return Optional.empty();
             CorpseEntity corpse = CorpseEntity.of(player, velocity);
-            CorpseLifecycle.beginCreation(corpse);
-            boolean committed = false;
-            try {
-                if (MinecraftForge.EVENT_BUS.post(
-                        new CorpseCreateEvent.Pre(corpse,source))) return Optional.empty();
-                if (!CorpseOperations.canModify(source) || corpse.isRemoved() || !level.addFreshEntity(corpse) || corpse.isRemoved()) return Optional.empty();
-                if (!level.getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY)) {
-                    var inventory = player.getInventory();
-                    List<net.minecraft.world.item.ItemStack> before = new ArrayList<>();
-                    for (int i=0;i<inventory.getContainerSize();i++) before.add(inventory.getItem(i).copy());
-                    try {
-                        corpse.takeInventoryFrom(player);
-                        if (corpse.isRemoved()) throw new IllegalStateException("物品交接期间尸体被移除");
-                    } catch (RuntimeException failure) {
-                        for (int i=0;i<before.size();i++) inventory.setItem(i,before.get(i));
-                        // 清除回退尸体中的副本，避免外部保留引用后再次取出
-                        for (int i=0;i<corpse.contents().getContainerSize();i++) corpse.contents().removeItemNoUpdate(i);
-                        CorpseLab.LOGGER.error("尸体物品交接失败，已还原玩家背包",failure);
-                        return Optional.empty();
-                    }
-                }
-                CorpseLifecycle.commitCreation(corpse);
-                committed = true;
-            } finally {
-                if (!committed) {
-                    CorpseLifecycle.abortCreation(corpse);
-                    corpse.discard();
-                }
-            }
-            MinecraftForge.EVENT_BUS.post(
-                    new CorpseCreateEvent.Post(corpse,source));
-            return CorpseViews.find(corpse);
+            boolean transfer = CorpseLabConfig.SERVER.corpseTransferItems.get()
+                    && !level.getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY);
+            var inventory = player.getInventory();
+            List<net.minecraft.world.item.ItemStack> before = new ArrayList<>();
+            if (transfer) for (int i = 0; i < inventory.getContainerSize(); i++) before.add(inventory.getItem(i).copy());
+            return commitPlayer(player, corpse,
+                    () -> { if (transfer) corpse.takeInventoryFrom(player); },
+                    () -> { for (int i = 0; i < before.size(); i++) inventory.setItem(i, before.get(i)); });
         }
         if (plan == null || !plan.isValid() || plan.boxCount() == 0) return Optional.empty();
         return CorpseViews.find(PlanCorpseEntity.spawn(level, plan, EntityType.getKey(source.getType()),
                 source.position(), source.yBodyRot, velocity, source));
     }
 
+
+    static Optional<CorpseView> commitPlayer(Player player, CorpseEntity corpse, Runnable transfer, Runnable rollback) {
+        ServerLevel level = (ServerLevel) player.level;
+        CorpseLifecycle.beginCreation(corpse);
+        boolean committed = false;
+        try {
+            if (MinecraftForge.EVENT_BUS.post(
+                    new CorpseCreateEvent.Pre(corpse,player))) return Optional.empty();
+            if (!CorpseOperations.canModify(player) || corpse.isRemoved() || !level.addFreshEntity(corpse) || corpse.isRemoved()) return Optional.empty();
+            try {
+                transfer.run();
+                if (corpse.isRemoved()) throw new IllegalStateException("物品交接期间尸体被移除");
+            } catch (RuntimeException failure) {
+                rollback.run();
+                for (int i = 0; i < corpse.contents().getContainerSize(); i++) corpse.contents().removeItemNoUpdate(i);
+                CorpseLab.LOGGER.error("尸体物品交接失败，已回退", failure);
+                return Optional.empty();
+            }
+            CorpseLifecycle.commitCreation(corpse);
+            committed = true;
+        } finally {
+            if (!committed) {
+                CorpseLifecycle.abortCreation(corpse);
+                corpse.discard();
+            }
+        }
+        MinecraftForge.EVENT_BUS.post(
+                new CorpseCreateEvent.Post(corpse,player));
+        return CorpseViews.find(corpse);
+    }
 
     /** 生物创建的提交点与玩家一致，失败不淘汰旧尸体 */
     static PlanCorpseEntity createMob(ServerLevel level, BodyPlan plan, ResourceLocation type,
@@ -91,6 +97,11 @@ public final class CorpseCreation {
                 || !finite(position) || !Float.isFinite(yaw) || velocity != null && !finite(velocity)) return null;
         PlanCorpseEntity corpse = PlanCorpseEntity.prepare(level, plan, type, position, yaw, velocity, source);
         if (corpse == null) return null;
+        return commitMob(level, corpse, source);
+    }
+
+    static PlanCorpseEntity commitMob(ServerLevel level, PlanCorpseEntity corpse, @Nullable LivingEntity source) {
+        Vec3 position = corpse.position();
         CorpseLifecycle.beginCreation(corpse);
         boolean committed = false;
         try {

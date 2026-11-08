@@ -38,6 +38,7 @@ public final class CorpseLabConfig {
         public final ForgeConfigSpec.DoubleValue releaseSpeedThreshold;
 
         public final ForgeConfigSpec.BooleanValue corpseEnabled;
+        public final ForgeConfigSpec.BooleanValue corpseTransferItems;
         public final ForgeConfigSpec.IntValue corpseLifetimeTicks;
         public final ForgeConfigSpec.BooleanValue corpseDespawnWhenEmpty;
         public final ForgeConfigSpec.IntValue corpseFreezeTicks;
@@ -97,8 +98,12 @@ public final class CorpseLabConfig {
             b.comment("玩家死亡后留下什么").push("corpse");
 
             corpseEnabled = b
-                    .comment("死亡时把身体留在原地，身上带着玩家生前携带的物品", "关掉后按原版方式掉落物品")
+                    .comment("玩家死亡时是否留下尸体", "物品是否转移由 transferItems 控制")
                     .define("enabled", true);
+
+            corpseTransferItems = b
+                    .comment("是否将玩家死亡物品转入尸体；关闭后仍生成尸体，物品按原版掉落，keepInventory 始终优先")
+                    .define("transferItems", true);
 
             corpseLifetimeTicks = b
                     .comment("尸体存在多少 tick 后自动消失")
