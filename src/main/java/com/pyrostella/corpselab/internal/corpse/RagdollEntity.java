@@ -19,6 +19,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.entity.EntityInLevelCallback;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.network.PacketDistributor;
@@ -102,7 +103,14 @@ public abstract class RagdollEntity extends Entity implements GrabbableCorpse {
         this.limbs.publish();
     }
 
-    void finishRemoval(RemovalReason reason) {
+    @Override
+    public void setLevelCallback(EntityInLevelCallback callback) {
+        // NULL 只是管理器解除关联，不代表发生了新的移除
+        super.setLevelCallback(callback == EntityInLevelCallback.NULL ? callback
+                : new CorpseLevelCallback(this, callback, this::finishRemoval));
+    }
+
+    private void finishRemoval(RemovalReason reason) {
         this.grab.release(reason.shouldDestroy()
                 ? com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason.REMOVED
                 : com.pyrostella.corpselab.api.event.CorpseGrabEvent.ReleaseReason.UNLOADED);

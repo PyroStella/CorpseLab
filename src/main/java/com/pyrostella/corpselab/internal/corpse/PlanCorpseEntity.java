@@ -40,6 +40,7 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.entity.EntityInLevelCallback;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.PacketDistributor;
@@ -204,7 +205,14 @@ public class PlanCorpseEntity extends Entity implements GrabbableCorpse {
         return this.age;
     }
 
-    void finishRemoval(RemovalReason reason) {
+    @Override
+    public void setLevelCallback(EntityInLevelCallback callback) {
+        // NULL 只是管理器解除关联，不代表发生了新的移除
+        super.setLevelCallback(callback == EntityInLevelCallback.NULL ? callback
+                : new CorpseLevelCallback(this, callback, this::finishRemoval));
+    }
+
+    private void finishRemoval(RemovalReason reason) {
         this.grab.release(reason.shouldDestroy() ? CorpseGrabEvent.ReleaseReason.REMOVED : CorpseGrabEvent.ReleaseReason.UNLOADED);
         if (reason.shouldDestroy()) this.revival.interrupt(CorpseReviveEvent.Interruption.REMOVED);
         this.limbs.clear();

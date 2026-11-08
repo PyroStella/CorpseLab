@@ -73,13 +73,6 @@ public final class CorpseLifecycle {
         corpse.discard();
     }
 
-    /** Entity.setRemoved 结束后唯一派发，不依赖跟踪可见性或区块卸载顺序。 */
-    public static void onEntityRemoved(Entity entity, Entity.RemovalReason reason) {
-        if (reason == null) return;
-        if (entity instanceof PlanCorpseEntity corpse) corpse.finishRemoval(reason);
-        else if (entity instanceof RagdollEntity corpse) corpse.finishRemoval(reason);
-    }
-
     /** 在实体自身的抓取、复活和肢体代理清理完成后调用 */
     static void onRemoved(Entity corpse, Entity.RemovalReason reason) {
         if (!(corpse.level() instanceof ServerLevel)) return;
